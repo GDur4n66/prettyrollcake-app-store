@@ -20,9 +20,9 @@ repo: https://github.com/getAlby/lndhub.go
 support: 
 port: 5000
 gallery:
-  - https://i.imgur.com/yyVG0Jb.jpeg
-  - https://i.imgur.com/yyVG0Jb.jpeg
-  - https://i.imgur.com/yyVG0Jb.jpeg
+  - https://github.com/getumbrel/umbrel-apps-gallery/blob/master/bluewallet/1.jpg
+  - https://github.com/getumbrel/umbrel-apps-gallery/blob/master/bluewallet/2.jpg
+  - https://github.com/getumbrel/umbrel-apps-gallery/blob/master/bluewallet/3.jpg
 path: ""
 defaultUsername: ""
 defaultPassword: ""
