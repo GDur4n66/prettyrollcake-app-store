@@ -1,0 +1,29 @@
+manifestVersion: 1
+id: prettyrollcake-lndhubgo
+category: bitcoin
+name: lndhub.go
+version: "20231220"
+tagline: lndhub.go
+description: >-
+  Run BlueWallet in the most private and secure way possible by
+  removing 3rd parties and connecting it directly to your Umbrel's Lightning
+  node.
+
+
+  You can pair multiple BlueWallet accounts, so your friends and family can pair their BlueWallet with your Umbrel for a trust-minimized setup.
+developer: Alby
+website: https://github.com/getAlby/lndhub.go
+dependencies:
+  - lightning
+repo: https://github.com/getAlby/lndhub.go
+support: 
+port: 5000
+gallery:
+  - https://i.imgur.com/yyVG0Jb.jpeg
+  - https://i.imgur.com/yyVG0Jb.jpeg
+  - https://i.imgur.com/yyVG0Jb.jpeg
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter:  
+submission: 

@@ -1,0 +1,31 @@
+version: "3.7"
+
+services:
+  main:
+    image: prettyrollcake/lndhubgo:20231220
+    depends_on:
+      - db
+    restart: on-failure
+    volumes:
+      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
+    environment:
+      PORT: "5000"
+      DATABASE_URI: "postgresql://lndhubgo_user:lndhubgo_password@prettyrollcake-lndhubgo_db_1:5432/lndhubgo_db?sslmode=disable"
+      JWT_SECRET: ${APP_PASSWORD}
+      LND_ADDRESS: "10.21.21.9:10009"
+      LND_MACAROON_FILE: "/lnd/data/chain/bitcoin/mainnet/admin.macaroon"
+      LND_CERT_FILE: "/lnd/tls.cert"
+    ports:
+      - 5000:5000
+
+  db:
+    image: postgres:16.1-bullseye
+    restart: on-failure
+    environment:
+      - POSTGRES_USER=lndhubgo_user
+      - POSTGRES_PASSWORD=lndhubgo_password
+      - POSTGRES_DB=lndhubgo_db
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - ${APP_DATA_DIR}/data:/var/lib/postgresql/data
+
