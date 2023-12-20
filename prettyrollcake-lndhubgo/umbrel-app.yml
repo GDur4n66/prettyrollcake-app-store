@@ -4,7 +4,7 @@ category: bitcoin
 name: lndhub.go
 version: "20231220"
 tagline: lndhub.go
-icon: https://i.nostr.build/MyVJ.png
+icon: https://svgshare.com/i/115i.svg
 description: >-
   Run BlueWallet in the most private and secure way possible by
   removing 3rd parties and connecting it directly to your Umbrel's Lightning
