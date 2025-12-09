@@ -1,0 +1,62 @@
+version: "3.7"
+
+services:
+  nbxplorer:
+    image: nicolasdorier/nbxplorer:2.5.28@sha256:480dbf66c30ce0ab211b9275696647c9756f2f81750fd02162c0d3768ee73ffb
+    user: "1000:1000"
+    restart: on-failure
+    stop_grace_period: 1m
+    depends_on: [postgres]
+    volumes:
+      - ${APP_DATA_DIR}/data/nbxplorer:/data
+    environment:
+      NBXPLORER_DATADIR: "/data"
+      NBXPLORER_NETWORK: "$APP_BITCOIN_NETWORK"
+      NBXPLORER_BIND: 0.0.0.0:32838
+      NBXPLORER_CHAINS: "btc"
+      NBXPLORER_SIGNALFILEDIR: "/data"
+      NBXPLORER_BTCRPCURL: "http://$APP_BITCOIN_NODE_IP:$APP_BITCOIN_RPC_PORT"
+      NBXPLORER_BTCNODEENDPOINT: $APP_BITCOIN_NODE_IP:${APP_BITCOIN_P2P_WHITEBIND_PORT-${APP_BITCOIN_P2P_PORT}}
+      NBXPLORER_BTCRPCUSER: $APP_BITCOIN_RPC_USER
+      NBXPLORER_BTCRPCPASSWORD: $APP_BITCOIN_RPC_PASS
+      NBXPLORER_POSTGRES: User ID=postgres;Host=prettyrolecake-btcpay-server_postgres_1;Port=5432;Application Name=nbxplorer;MaxPoolSize=20;Database=nbxplorer$APP_BITCOIN_NETWORK
+      NBXPLORER_BTCHASTXINDEX: 1
+
+  web:
+    image: btcpayserver/btcpayserver:2.2.1@sha256:21543641994293c253526a9947d741434c3fb4f1fcc847f1b253750b6c56ee23
+    user: "1000:1000"
+    restart: on-failure
+    stop_grace_period: 1m
+    depends_on: [nbxplorer, postgres]
+    entrypoint: ["dotnet", "BTCPayServer.dll"]
+    volumes:
+      - ${APP_DATA_DIR}/data/btcpay:/data
+      - ${APP_DATA_DIR}/data/nbxplorer:/data/.nbxplorer
+    environment:
+      HOME: "/data"
+      BTCPAY_DATADIR: "/data"
+      BTCPAY_PLUGINDIR: "/data/plugins"
+      BTCPAY_DOCKERDEPLOYMENT: "false"
+      BTCPAY_POSTGRES: "User ID=postgres;Host=prettyrolecake-btcpay-server_postgres_1;Port=5432;Database=btcpayserver$APP_BITCOIN_NETWORK"
+      BTCPAY_NETWORK: "$APP_BITCOIN_NETWORK"
+      BTCPAY_BIND: 0.0.0.0:3003
+      BTCPAY_CHAINS: "btc"
+      BTCPAY_BTCEXPLORERURL: "http://prettyrolecake-btcpay-server_nbxplorer_1:32838"
+      BTCPAY_SOCKSENDPOINT: $TOR_PROXY_IP:$TOR_PROXY_PORT
+      BTCPAY_EXPLORERPOSTGRES: User ID=postgres;Host=prettyrolecake-btcpay-server_postgres_1;Port=5432;Application Name=nbxplorer;MaxPoolSize=20;Database=nbxplorer$APP_BITCOIN_NETWORK
+      BTCPAY_TORSERVICES: "btcpayserver:$APP_HIDDEN_SERVICE"
+    ports:
+      - 33003:3003
+
+  postgres:
+    image: btcpayserver/postgres:13.13@sha256:20d090860c929d4e86dc1068ad542cbae3e7ab3bcbc5c0c8a8b57ec91a5cbe3c
+    # This needs to run as root for migrations to succeed
+    # user: "1000:1000"
+    restart: on-failure
+    # https://github.com/btcpayserver/btcpayserver-docker/commit/a65e7db6851092c75c5ac6c091a5f36ccc5fc26e
+    command: ["-c", "random_page_cost=1.0", "-c", "shared_preload_libraries=pg_stat_statements"]
+    stop_grace_period: 1m
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
