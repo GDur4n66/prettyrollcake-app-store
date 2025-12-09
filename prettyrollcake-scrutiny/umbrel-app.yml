@@ -1,0 +1,24 @@
+manifestVersion: 1
+id: prettyrollcake-scrutiny
+name: scrutiny
+tagline: "tagline"
+icon: https://svgur.com/i/mvA.svg
+category: developer
+version: "1.0.0"
+port: 38088
+description:""
+developer: ""
+website: ""
+submitter: ""
+submission: ""
+repo: ""
+support: ""
+gallery:
+  - https://i.imgur.com/yyVG0Jb.jpeg
+  - https://i.imgur.com/yyVG0Jb.jpeg
+  - https://i.imgur.com/yyVG0Jb.jpeg
+releaseNotes: ""
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""

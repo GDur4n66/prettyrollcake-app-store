@@ -1,0 +1,19 @@
+version: "3.7"
+
+services:
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:master-omnibus
+    restart: on-failure
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN
+    volumes:
+      - /run/udev:/run/udev:ro
+      - ${APP_DATA_DIR}/data/config:/opt/scrutiny/config
+      - ${APP_DATA_DIR}/data/influxdb:/opt/scrutiny/influxdb
+    ports:
+      - 38088:8080 # webapp
+      #- "8086:8086" # influxDB admin
+    devices:
+      - "/dev/nvme0"
+      #- "/dev/sda"
