@@ -1,23 +1,29 @@
 manifestVersion: 1
 id: prettyrollcake-pgadmin4
 name: pgAdmin4
-tagline: "pgAdmin 4 is a web based administration tool for the PostgreSQL database."
+tagline: pgAdmin 4 is a web based administration tool for the PostgreSQL database.
 icon: https://svgur.com/i/mvA.svg
-category: developer
+category: Development
 version: "9.10"
 port: 38800
-description:""
-developer: ""
-website: ""
-submitter: ""
-submission: ""
-repo: ""
-support: ""
+description: >-
+  Add your app's description here.
+
+
+  You can also add newlines!
+
+developer: hogepiyo
+website: https://umbrel.com
+submitter: Umbrel
+submission: https://github.com/getumbrel/umbrel-hello-world-app
+repo: https://github.com/getumbrel/umbrel-hello-world-app
+support: https://github.com/getumbrel/umbrel-hello-world-app/issues
 gallery:
   - https://i.imgur.com/yyVG0Jb.jpeg
   - https://i.imgur.com/yyVG0Jb.jpeg
   - https://i.imgur.com/yyVG0Jb.jpeg
-releaseNotes: ""
+releaseNotes: >-
+  Add what's new in the latest version of your app here.
 dependencies: []
 path: ""
 defaultUsername: "umbrel@example.com"
