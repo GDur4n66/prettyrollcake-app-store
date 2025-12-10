@@ -1,0 +1,13 @@
+version: "3.7"
+
+services:
+  admin:
+    image: dpage/pgadmin4:9.10
+    restart: on-failure
+    volumes:
+      - ${PWD}/data:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "umbrel@example.com"
+      PGADMIN_DEFAULT_PASSWORD: ${APP_PASSWORD}
+    ports:
+      - 38800:80

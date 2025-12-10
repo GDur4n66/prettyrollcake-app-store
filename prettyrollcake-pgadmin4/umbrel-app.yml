@@ -1,0 +1,24 @@
+manifestVersion: 1
+id: prettyrollcake-pgadmin4
+name: pgAdmin4
+tagline: "pgAdmin 4 is a web based administration tool for the PostgreSQL database."
+icon: https://svgur.com/i/mvA.svg
+category: developer
+version: "9.10"
+port: 38800
+description:""
+developer: ""
+website: ""
+submitter: ""
+submission: ""
+repo: ""
+support: ""
+gallery:
+  - https://i.imgur.com/yyVG0Jb.jpeg
+  - https://i.imgur.com/yyVG0Jb.jpeg
+  - https://i.imgur.com/yyVG0Jb.jpeg
+releaseNotes: ""
+dependencies: []
+path: ""
+defaultUsername: "umbrel@example.com"
+deterministicPassword: true
