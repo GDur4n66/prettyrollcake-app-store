@@ -15,8 +15,7 @@ description: >-
   LNbits is packaged with tools to help manage funds, such as a table of transactions, line chart of spending, export to CSV, and more to come. It provides an extendable platform for expanding Lightning Network functionality via LNbits extension framework, and can also be used as a fallback wallet for the LNURL scheme.
 developer: LNbits
 website: https://github.com/lnbits/lnbits-legend
-dependencies:
-  - lightning
+dependencies: []
 repo: https://github.com/lnbits/lnbits-legend
 support: https://t.me/lnbits
 port: 33007
