@@ -1,12 +1,6 @@
 version: "3.7"
 
 services:
-  app_proxy:
-    environment:
-      APP_HOST: prettyrollcake-lnbits_web_1
-      APP_PORT: 3007
-      PROXY_AUTH_ADD: "false"
-  
   web:
     image: lnbits/lnbits:v1.3.1@sha256:9a1fb55748d10e4b8383be0efd3d4efc3fc7903097ddaa8f33bac821ac29a8f5
     init: true
@@ -27,5 +21,5 @@ services:
       LNBITS_DISABLED_EXTENSIONS: "amilk"
       LNBITS_ADMIN_EXTENSIONS: "ngrok"
       LNBITS_ADMIN_UI: "true"
-
-
+    ports:
+      - 33007:3007
