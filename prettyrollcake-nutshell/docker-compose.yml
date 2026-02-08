@@ -16,6 +16,6 @@ services:
       MINT_LISTEN_PORT: 3338
       MINT_PRIVATE_KEY: ${APP_SEED}
       MINT_BACKEND_BOLT11_SAT: LndRestWallet
-      MINT_LND_REST_ENDPOINT: https://lightning_lnd_1:8080
+      MINT_LND_REST_ENDPOINT: https://10.21.21.9:8080
       MINT_LND_REST_CERT: /lnd/tls.cert
       MINT_LND_REST_MACAROON: /lnd/data/chain/bitcoin/mainnet/admin.macaroon
