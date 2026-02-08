@@ -1,0 +1,25 @@
+manifestVersion: 1
+id: prettyrollcake-nutshell
+category: bitcoin
+name: "nutshell"
+version: "0.18.2"
+tagline: Chaumian Ecash wallet and mint for Bitcoin Lightning based on the Cashu protocol.
+description: >-
+  Cashu is a free and open-source Ecash protocol based on David Wagner's variant of Chaumian blinding called Blind Diffie-Hellman Key Exchange scheme written down here. 
+releaseNotes: 
+developer: cashubtc
+website: 
+dependencies: []
+repo: https://github.com/cashubtc/nutshell
+support: 
+port: 3338
+gallery:
+  - 1.jpg
+  - 2.jpg
+  - 3.jpg
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+torOnly: false
+submitter: Umbrel
+submission: 

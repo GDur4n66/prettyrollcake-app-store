@@ -1,0 +1,21 @@
+version: "3.7"
+
+services:
+  mint:
+    image: cashubtc/nutshell:0.18.2
+    restart: on-failure
+    stop_grace_period: 1m
+    volumes:
+      - ${APP_DATA_DIR}/data:/app/data/mint
+      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
+    command: ["poetry", "run", "mint"]
+    ports:
+      - 3338:3338
+    environment:
+      MINT_LISTEN_HOST: 0.0.0.0
+      MINT_LISTEN_PORT: 3338
+      MINT_PRIVATE_KEY: ${APP_SEED}
+      MINT_BACKEND_BOLT11_SAT: LndRestWallet
+      MINT_LND_REST_ENDPOINT: https://lightning_lnd_1:8080
+      MINT_LND_REST_CERT: /lnd/tls.cert
+      MINT_LND_REST_MACAROON: /lnd/data/chain/bitcoin/mainnet/admin.macaroon
