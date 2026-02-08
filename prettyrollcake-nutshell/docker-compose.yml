@@ -7,7 +7,7 @@ services:
     stop_grace_period: 1m
     volumes:
       - ${APP_DATA_DIR}/data:/app/data/mint
-      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
+      - ${UMBREL_ROOT}/app-data/lightning/data/lnd:/lnd:ro
     command: ["poetry", "run", "mint"]
     ports:
       - 3338:3338
