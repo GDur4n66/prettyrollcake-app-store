@@ -4,7 +4,8 @@ services:
   main:
     image: prettyrollcake/btcd:v0.25.0
     hostname: ${DEVICE_DOMAIN_NAME}
-    restart: unless-stopped
+    restart: on-failure
+    stop_grace_period: 15m30s
     user: '1000:1000'
     environment:
       HOME: /data
@@ -25,3 +26,4 @@ services:
     networks:
       default:
         ipv4_address: ${APP_BTCD_IP}
+
