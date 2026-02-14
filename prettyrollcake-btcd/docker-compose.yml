@@ -1,0 +1,27 @@
+version: '3.7'
+
+services:
+  main:
+    image: prettyrollcake/btcd:v0.25.0
+    hostname: ${DEVICE_DOMAIN_NAME}
+    restart: unless-stopped
+    user: '1000:1000'
+    environment:
+      HOME: /data
+    volumes:
+      - ${APP_DATA_DIR}/data/btcd:/data/.btcd
+    ports:
+      - 48333:8333
+      - 48334:8334
+    command:
+      - --rpcuser=bitcoiner
+      - --rpcpass=donttrustverify
+      - --proxy=${TOR_PROXY_IP}:${TOR_PROXY_PORT}
+      - --whitelist=10.21.0.0/16
+      - --nopeerbloomfilters
+      - --txindex
+      - --addrindex
+      - --utxocachemaxsize=6000
+    networks:
+      default:
+        ipv4_address: ${APP_BTCD_IP}
