@@ -1,1 +1,2 @@
 export APP_BTCD_IP="10.21.114.1"
+export APP_BTCD_TOR_PROXY_IP="10.21.114.10"
