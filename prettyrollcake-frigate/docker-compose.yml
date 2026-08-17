@@ -2,11 +2,15 @@ version: "3.7"
 
 services:
   server:
-    image: prettyrollcake/frigate:1.5.3-amd64@sha256:2f36b1011bb9c58721ebb11ef3fbbf21dafa5a7f5fbfeafe64c49984b4149f47
+    image: prettyrollcake/frigate:1.5.3-umbrel-home-amd64@sha256:1edf30c3eb7a8db462e2c2bed4074b6ed5234bc7ecf07e4b8bce0dd9fb6437f6
     user: "1000:1000"
+    group_add:
+      - "${APP_FRIGATE_RENDER_GID}"
     restart: on-failure
     stop_grace_period: 2m
     init: true
+    devices:
+      - /dev/dri:/dev/dri
     ports:
       - "50011:50011"
     volumes:
