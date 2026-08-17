@@ -8,7 +8,7 @@ services:
     stop_grace_period: 2m
     init: true
     ports:
-      - "50011:50001"
+      - "50011:50011"
     volumes:
       - ${APP_DATA_DIR}/data:/data
     environment:
@@ -38,8 +38,10 @@ services:
 
         [server]
         host = "tcp://${DEVICE_DOMAIN_NAME}:50011"
-        tcp = "tcp://0.0.0.0:50001"
+        tcp = "tcp://0.0.0.0:50011"
         backendElectrumServer = "tcp://${APP_ELECTRS_NODE_IP}:${APP_ELECTRS_NODE_PORT}"
         EOF
+        elif grep -Fq 'tcp = "tcp://0.0.0.0:50001"' /data/config.toml; then
+          sed -i 's|tcp = "tcp://0.0.0.0:50001"|tcp = "tcp://0.0.0.0:50011"|' /data/config.toml
         fi
         exec /opt/frigate/bin/frigate -d /data -n "$${APP_BITCOIN_NETWORK}"
