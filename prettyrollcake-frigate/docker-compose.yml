@@ -1,0 +1,45 @@
+version: "3.7"
+
+services:
+  server:
+    image: prettyrollcake/frigate:1.5.3-amd64@sha256:2f36b1011bb9c58721ebb11ef3fbbf21dafa5a7f5fbfeafe64c49984b4149f47
+    user: "1000:1000"
+    restart: on-failure
+    stop_grace_period: 2m
+    init: true
+    ports:
+      - "50011:50001"
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+    environment:
+      HOME: /data
+      APP_BITCOIN_NETWORK: "${APP_BITCOIN_NETWORK:-mainnet}"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        umask 077
+        mkdir -p /data
+        if [ ! -f /data/config.toml ]; then
+          cat > /data/config.toml <<EOF
+        [core]
+        connect = true
+        server = "http://${APP_BITCOIN_NODE_IP}:${APP_BITCOIN_RPC_PORT}"
+        authType = "USERPASS"
+        auth = "${APP_BITCOIN_RPC_USER}:${APP_BITCOIN_RPC_PASS}"
+        zmqSequenceEndpoint = "tcp://${APP_BITCOIN_NODE_IP}:${APP_BITCOIN_ZMQ_SEQUENCE_PORT}"
+
+        [index]
+        cacheSize = "2M"
+
+        [scan]
+        computeBackend = "AUTO"
+        memoryLimit = "3GB"
+        dbThreads = 4
+
+        [server]
+        host = "tcp://${DEVICE_DOMAIN_NAME}:50011"
+        tcp = "tcp://0.0.0.0:50001"
+        backendElectrumServer = "tcp://${APP_ELECTRS_NODE_IP}:${APP_ELECTRS_NODE_PORT}"
+        EOF
+        fi
+        exec /opt/frigate/bin/frigate -d /data -n "$${APP_BITCOIN_NETWORK}"
