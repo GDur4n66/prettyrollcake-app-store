@@ -33,12 +33,13 @@ services:
         zmqSequenceEndpoint = "tcp://${APP_BITCOIN_NODE_IP}:${APP_BITCOIN_ZMQ_SEQUENCE_PORT}"
 
         [index]
-        cacheSize = "2M"
+        cacheSize = "1M"
 
         [scan]
         computeBackend = "AUTO"
-        memoryLimit = "3GB"
+        memoryLimit = "2GB"
         dbThreads = 4
+        batchSize = 100000
 
         [server]
         host = "tcp://${DEVICE_DOMAIN_NAME}:50011"
@@ -47,5 +48,14 @@ services:
         EOF
         elif grep -Fq 'tcp = "tcp://0.0.0.0:50001"' /data/config.toml; then
           sed -i 's|tcp = "tcp://0.0.0.0:50001"|tcp = "tcp://0.0.0.0:50011"|' /data/config.toml
+        fi
+        if grep -Fq 'cacheSize = "2M"' /data/config.toml; then
+          sed -i 's|cacheSize = "2M"|cacheSize = "1M"|' /data/config.toml
+        fi
+        if grep -Fq 'memoryLimit = "3GB"' /data/config.toml; then
+          sed -i 's|memoryLimit = "3GB"|memoryLimit = "2GB"|' /data/config.toml
+        fi
+        if ! grep -Fq 'batchSize =' /data/config.toml; then
+          sed -i '/computeBackend = "AUTO"/a batchSize = 100000' /data/config.toml
         fi
         exec /opt/frigate/bin/frigate -d /data -n "$${APP_BITCOIN_NETWORK}"

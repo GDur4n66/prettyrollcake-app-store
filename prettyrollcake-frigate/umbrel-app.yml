@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-frigate
 category: bitcoin
 name: Frigate
-version: "1.5.3-opencl"
+version: "1.5.3-opencl.2"
 tagline: Silent Payments Electrum server
 description: >-
   Frigate is an Electrum server for Silent Payments (BIP352). It scans for
@@ -12,8 +12,8 @@ description: >-
   falls back to the CPU. Frigate has no graphical interface; connect an
   Electrum client to port 50011 on your Umbrel.
 releaseNotes: >-
-  Adds Intel OpenCL support for GPU-assisted historical scanning on Umbrel Home
-  2 and Umbrel Home 3.
+  Reduces the default memory footprint for small deployments while retaining
+  Intel OpenCL GPU-assisted historical scanning on Umbrel Home 2 and 3.
 developer: Sparrow Wallet
 website: https://github.com/sparrowwallet/frigate
 dependencies:
