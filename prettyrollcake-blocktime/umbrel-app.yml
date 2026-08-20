@@ -1,0 +1,31 @@
+manifestVersion: 1
+id: prettyrollcake-blocktime
+category: bitcoin
+name: Blocktime
+version: "1.0.0"
+tagline: Find the Bitcoin block for any moment in time
+description: >-
+  Enter a date and time to find the latest Bitcoin block that had been mined
+  at that moment. Blocktime searches your local mempool explorer, shows the
+  exact block height, timestamp and hash, and keeps your queries inside your
+  local network.
+
+
+  Future dates are clearly marked as estimates based on Bitcoin's average
+  ten-minute block interval.
+releaseNotes: >-
+  Initial release. Search by local time, UTC or JST and open matching blocks
+  directly in your local mempool explorer.
+developer: prettyrollcake
+website: https://github.com/GDur4n66/prettyrollcake-app-store
+dependencies:
+  - mempool
+repo: https://github.com/GDur4n66/prettyrollcake-app-store
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 3007
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store
