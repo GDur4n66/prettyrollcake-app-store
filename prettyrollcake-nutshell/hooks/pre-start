@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
+DATA_DIR="${APP_DIR}/data"
+ENV_FILE="${APP_DIR}/.env"
+
+mkdir -p "${DATA_DIR}/mint" "${DATA_DIR}/wallet-data" "${APP_DIR}/orchard-data"
+
+# Create .env once (mint key and Lightning backend).
+# An existing .env is never touched, so the mint key never changes.
+# To restore a backed-up mint, put its .env here and restart the app.
+if [[ ! -e "${ENV_FILE}" ]]; then
+	if [[ -z "${APP_SEED:-}" ]]; then
+		echo "APP_SEED is not set; not creating .env" >&2
+		exit 1
+	fi
+	echo "Creating .env"
+	umask 077
+	cat > "${ENV_FILE}" <<ENV
+MINT_PRIVATE_KEY=${APP_SEED}
+MINT_BACKEND_BOLT11_SAT=LndRestWallet
+MINT_LND_REST_ENDPOINT=https://${APP_LIGHTNING_NODE_IP:-10.21.21.9}:${APP_LIGHTNING_NODE_REST_PORT:-8080}
+MINT_LND_REST_CERT=/lnd/tls.cert
+MINT_LND_REST_MACAROON=/lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK:-mainnet}/admin.macaroon
+ENV
+fi

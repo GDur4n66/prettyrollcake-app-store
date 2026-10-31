@@ -1,21 +1,71 @@
 version: "3.7"
 
 services:
+  app_proxy:
+    environment:
+      # Umbrel の「開く」は Orchard（ミントの管理画面）
+      APP_HOST: prettyrollcake-nutshell_orchard_1
+      APP_PORT: 3321
+
   mint:
-    image: cashubtc/nutshell:0.18.2
+    image: cashubtc/nutshell:0.21.0@sha256:beed25e291357368e35e1698bf2e4645d97ed435232a8f8ff6501c77d67c0b90
     restart: on-failure
     stop_grace_period: 1m
-    volumes:
-      - ${APP_DATA_DIR}/data:/app/data/mint
-      - ${UMBREL_ROOT}/app-data/lightning/data/lnd:/lnd:ro
     command: ["poetry", "run", "mint"]
+    depends_on:
+      - redis
     ports:
       - 3338:3338
+    volumes:
+      # MINT_PRIVATE_KEY や Lightning の設定はここ（hooks/pre-start が無ければ作る）
+      - ${APP_DATA_DIR}/.env:/app/.env
+      - ${APP_DATA_DIR}/data/mint:/app/data/mint
+      - ${APP_DATA_DIR}/data/wallet-data:/root/.cashu
+      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
     environment:
       MINT_LISTEN_HOST: 0.0.0.0
       MINT_LISTEN_PORT: 3338
-      MINT_PRIVATE_KEY: ${APP_SEED}
-      MINT_BACKEND_BOLT11_SAT: LndRestWallet
-      MINT_LND_REST_ENDPOINT: https://10.21.21.9:8080
-      MINT_LND_REST_CERT: /lnd/tls.cert
-      MINT_LND_REST_MACAROON: /lnd/data/chain/bitcoin/mainnet/admin.macaroon
+      MINT_REDIS_CACHE_ENABLED: "TRUE"
+      MINT_REDIS_CACHE_URL: redis://prettyrollcake-nutshell_redis_1:6379
+      # Orchard が使う管理用 RPC（Umbrel 内のネットワークだけで使う）
+      MINT_RPC_SERVER_ENABLE: "TRUE"
+      MINT_RPC_SERVER_ADDR: 0.0.0.0
+      MINT_RPC_SERVER_PORT: 8086
+      MINT_RPC_SERVER_MUTUAL_TLS: "FALSE"
+
+  redis:
+    image: redis:7.4-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    restart: always
+
+  orchard:
+    image: ghcr.io/cashubtc/orchard:1.12@sha256:5c068b7ed9f30708de13cf34abc7aeb56de4bf5b7d837ee159a5c785c40d9480
+    restart: on-failure
+    depends_on:
+      - mint
+    environment:
+      NODE_ENV: production
+      # 初回セットアップ用のキー。Umbrel のアプリ画面に「パスワード」として表示される
+      SETUP_KEY: ${APP_PASSWORD}
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 3321
+      LOG_LEVEL: warn
+      MINT_TYPE: nutshell
+      MINT_API: http://prettyrollcake-nutshell_mint_1:3338
+      MINT_DATABASE: /nutshell/mint/mint.sqlite3
+      MINT_RPC_HOST: prettyrollcake-nutshell_mint_1
+      MINT_RPC_PORT: 8086
+      MINT_RPC_MTLS: "false"
+      BITCOIN_TYPE: core
+      BITCOIN_RPC_HOST: ${APP_BITCOIN_NODE_IP}
+      BITCOIN_RPC_PORT: ${APP_BITCOIN_RPC_PORT}
+      BITCOIN_RPC_USER: ${APP_BITCOIN_RPC_USER}
+      BITCOIN_RPC_PASSWORD: ${APP_BITCOIN_RPC_PASS}
+      LIGHTNING_TYPE: lnd
+      LIGHTNING_RPC_HOST: ${APP_LIGHTNING_NODE_IP}
+      LIGHTNING_RPC_PORT: ${APP_LIGHTNING_NODE_GRPC_PORT}
+      LIGHTNING_MACAROON: /lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}/readonly.macaroon
+      LIGHTNING_CERT: /lnd/tls.cert
+    volumes:
+      - ${APP_DATA_DIR}/orchard-data:/app/data
+      - ${APP_DATA_DIR}/data:/nutshell
+      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
