@@ -8,19 +8,13 @@ services:
       PROXY_AUTH_ADD: "false"
 
   web:
-    image: python:3.12-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
-    user: "1000:1000"
+    # Built from images/blocktime by .github/workflows/blocktime-image.yml
+    image: ghcr.io/gdur4n66/blocktime:1.2.0@sha256:f1b7963697170f41e8245a720f07feed4beac4b3d3e8fe0fd011d60f0238bd5a
     restart: on-failure
     init: true
-    command: ["python", "-I", "/server/server.py"]
     environment:
-      PORT: "8080"
-      WEB_DIR: /web
-      SETTINGS_FILE: /data/settings.json
       # Umbrel's Mempool app (used when "Umbrel の Mempool" is selected)
       UMBREL_MEMPOOL_URL: "http://10.21.21.26:3006"
       UMBREL_MEMPOOL_PORT: "3006"
     volumes:
-      - ${APP_DATA_DIR}/web:/web:ro
-      - ${APP_DATA_DIR}/server:/server:ro
       - ${APP_DATA_DIR}/data:/data

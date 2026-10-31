@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-blocktime
 category: bitcoin
 name: Blocktime
-version: "1.1.1"
+version: "1.2.0"
 tagline: Find the Bitcoin block for any moment in time
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-blocktime/icon.svg
 description: >-
@@ -15,7 +15,9 @@ description: >-
   Future dates are clearly marked as estimates based on Bitcoin's average
   ten-minute block interval.
 releaseNotes: >-
-  New app icon.
+  Blocktime now runs from its own Docker image, so updates install
+  correctly. If Blocktime 1.1.x did not start after updating, this release
+  fixes it.
 
 
   1.1.0: Blocktime no longer requires the Mempool app. Choose which mempool
