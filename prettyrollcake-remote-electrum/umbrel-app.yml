@@ -1,0 +1,37 @@
+manifestVersion: 1.1
+id: prettyrollcake-remote-electrum
+implements:
+  - electrs
+category: bitcoin
+name: Remote Electrum
+version: "0.1.0"
+tagline: Use an Electrum server on another host in place of Electrs
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-remote-electrum/icon.svg
+description: >-
+  Remote Electrum lets apps that depend on Electrs, such as Mempool and BTC
+  RPC Explorer, use an Electrum server (Electrs, Fulcrum, ElectrumX) running
+  on another machine instead of one on this Umbrel.
+
+
+  It does not index the blockchain itself. It relays connections from your
+  apps to the remote server, over plain TCP or SSL. Open the app to enter the
+  remote server's address and test the connection.
+
+
+  Install this app first, then choose "Remote Electrum" in place of Electrs
+  when installing apps that need it. Changing the remote server takes effect
+  for new connections right away; the apps using it do not need a restart.
+releaseNotes: >-
+  Initial release.
+developer: prettyrollcake
+website: https://github.com/GDur4n66/prettyrollcake-app-store
+dependencies: []
+repo: https://github.com/GDur4n66/prettyrollcake-app-store
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 33009
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store

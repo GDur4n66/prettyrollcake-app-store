@@ -1,0 +1,24 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: $APP_REMOTE_ELECTRUM_IP
+      APP_PORT: 8080
+
+  relay:
+    image: python:3.12-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+    user: "1000:1000"
+    restart: always
+    init: true
+    command: ["python", "-I", "/app/server.py"]
+    environment:
+      HTTP_PORT: "8080"
+      RELAY_PORT: $APP_REMOTE_ELECTRUM_RELAY_PORT
+      SETTINGS_FILE: /data/settings.json
+    volumes:
+      - ${APP_DATA_DIR}/web:/app:ro
+      - ${APP_DATA_DIR}/data:/data
+    networks:
+      default:
+        ipv4_address: $APP_REMOTE_ELECTRUM_IP

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remote Electrum</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --card: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc;
+    --accent: #f27800; --accent-text: #ffffff; --ok: #1f8a4c; --bad: #c4372c; --warn: #a96500;
+    --input: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --card: #1e1e1c; --text: #ececea; --muted: #9a9a94; --line: #33332f;
+      --accent: #ff9a2e; --accent-text: #1a1209; --ok: #4cc27f; --bad: #ff6b5e; --warn: #f0b04a;
+      --input: #181817;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  h2 { font-size: 16px; margin: 0 0 14px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .full { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  label.check { display: flex; gap: 8px; align-items: center; color: var(--text); font-size: 14px; margin: 0; }
+  label.check input { width: auto; }
+  input, select { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--input); color: var(--text); font: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .err { color: var(--bad); font-size: 12px; margin-top: 3px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  button { font: inherit; padding: 9px 18px; border-radius: 9px; border: 1px solid var(--line);
+    background: transparent; color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .55; cursor: default; }
+  .msg { margin-top: 12px; font-size: 14px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 6px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 40%; padding-right: 10px; }
+  tr:first-child td { border-top: 0; }
+  ol { padding-left: 20px; margin: 0; } li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Remote Electrum</h1>
+  <p class="lead">別ホストの Electrum サーバ（Electrs・Fulcrum・ElectrumX）を、Mempool などから Electrs の代わりに使います。</p>
+
+  <form id="form" class="card" novalidate>
+    <h2>接続先</h2>
+    <div class="grid">
+      <div>
+        <label for="host">ホスト（IP アドレス）</label>
+        <input id="host" name="host" placeholder="192.168.1.20" autocomplete="off">
+        <div class="hint">.local の名前はコンテナ内で引けないので IP がおすすめ</div>
+        <div class="err" data-for="host"></div>
+      </div>
+      <div>
+        <label for="port">ポート</label>
+        <input id="port" name="port" inputmode="numeric" placeholder="50001">
+        <div class="hint">ふつうは TCP 50001、SSL 50002</div>
+        <div class="err" data-for="port"></div>
+      </div>
+      <div>
+        <label for="protocol">接続方式</label>
+        <select id="protocol" name="protocol">
+          <option value="tcp">TCP（暗号化なし）</option>
+          <option value="ssl">SSL</option>
+        </select>
+        <div class="err" data-for="protocol"></div>
+      </div>
+      <div id="verifyBox">
+        <label>&nbsp;</label>
+        <label class="check"><input type="checkbox" id="verifyCert" name="verifyCert"> 証明書を検証する</label>
+        <div class="hint">自己署名の証明書なら外したままにする</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" id="testBtn">接続テスト</button>
+      <button type="submit" class="primary" id="saveBtn">保存</button>
+    </div>
+    <div class="msg" id="msg" role="status"></div>
+  </form>
+
+  <section class="card" id="testCard" hidden>
+    <h2>接続テストの結果</h2>
+    <div id="testResult"></div>
+  </section>
+
+  <section class="card">
+    <h2>中継の状態</h2>
+    <div id="status">読み込み中…</div>
+  </section>
+
+  <section class="card">
+    <h2>使い方</h2>
+    <ol>
+      <li>上で接続先を入れて「接続テスト」→「保存」。</li>
+      <li>Mempool などをインストールするとき、Electrs の代わりに <b>Remote Electrum</b> を選ぶ。</li>
+      <li>接続先を変えたときは保存するだけで、次の接続から新しい接続先が使われます（Mempool などの再起動は不要）。</li>
+    </ol>
+    <p class="hint" style="margin-top:12px">アプリはこのアプリの中継（Umbrel 内、暗号化なし）につなぎ、中継が別ホストへ TCP か SSL でつなぎ直します。</p>
+  </section>
+</main>
+
+<script>
+const form = document.getElementById('form');
+const msg = document.getElementById('msg');
+
+function el(tag, attrs, text) {
+  const e = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function values() {
+  return {
+    host: form.elements.host.value,
+    port: form.elements.port.value,
+    protocol: form.elements.protocol.value,
+    verifyCert: form.elements.verifyCert.checked,
+  };
+}
+
+function showErrors(errors) {
+  for (const box of form.querySelectorAll('.err')) box.textContent = (errors || {})[box.dataset.for] || '';
+}
+
+function setMessage(text, cls) {
+  msg.textContent = text;
+  msg.className = 'msg ' + (cls || '');
+}
+
+function syncVerifyBox() {
+  document.getElementById('verifyBox').style.visibility = form.elements.protocol.value === 'ssl' ? 'visible' : 'hidden';
+}
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'remote-electrum'},
+    body: JSON.stringify(body),
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  return {ok: res.ok, data};
+}
+
+function row(table, label, value, cls) {
+  const tr = el('tr');
+  tr.append(el('td', null, label), el('td', cls ? {class: cls} : null, value));
+  table.append(tr);
+}
+
+function ago(ts, now) {
+  const s = Math.max(0, Math.round(now - ts));
+  if (s < 60) return `${s}秒前`;
+  if (s < 3600) return `${Math.round(s / 60)}分前`;
+  if (s < 86400) return `${Math.round(s / 3600)}時間前`;
+  return `${Math.round(s / 86400)}日前`;
+}
+
+async function load() {
+  const {data} = await api('api/settings');
+  form.elements.host.value = data.host || '';
+  form.elements.port.value = data.port || 50001;
+  form.elements.protocol.value = data.protocol || 'tcp';
+  form.elements.verifyCert.checked = !!data.verifyCert;
+  syncVerifyBox();
+  if (!data.configured) setMessage('まだ設定されていません。', 'warn');
+}
+
+async function refreshStatus() {
+  try {
+    const {data: s} = await api('api/status');
+    const t = el('table');
+    row(t, '接続中', `${s.active} 件`);
+    row(t, '起動してからの接続', `${s.total} 件`);
+    if (s.lastOkAt) row(t, '最後に中継できた', ago(s.lastOkAt, s.now), 'ok');
+    if (s.lastError) row(t, '最後のエラー', `${s.lastError}（${ago(s.lastErrorAt, s.now)}）`,
+      !s.lastOkAt || s.lastErrorAt > s.lastOkAt ? 'bad' : 'warn');
+    document.getElementById('status').replaceChildren(t);
+  } catch (e) {}
+}
+
+function renderTest(r) {
+  const box = document.getElementById('testResult');
+  box.replaceChildren();
+  document.getElementById('testCard').hidden = false;
+  const t = el('table');
+  if (!r.ok) {
+    row(t, '接続', '✗ ' + r.error, 'bad');
+  } else {
+    row(t, '接続', `✓ 接続できました（${r.ms} ms）`, 'ok');
+    if (r.software) row(t, 'サーバ', r.software);
+    if (r.protocol) row(t, 'プロトコル', r.protocol);
+    row(t, 'ネットワーク', r.network, r.network === 'mainnet' ? '' : 'warn');
+    row(t, 'ブロック高', String(r.height));
+  }
+  box.append(t);
+}
+
+form.elements.protocol.addEventListener('change', () => {
+  syncVerifyBox();
+  const port = form.elements.port;
+  if (form.elements.protocol.value === 'ssl' && port.value === '50001') port.value = '50002';
+  if (form.elements.protocol.value === 'tcp' && port.value === '50002') port.value = '50001';
+});
+
+document.getElementById('testBtn').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget;
+  btn.disabled = true;
+  setMessage('テスト中…');
+  try {
+    const {ok, data} = await api('api/test', values());
+    showErrors(data.errors);
+    if (!ok) { setMessage(data.error || '入力を確認してください。', 'bad'); return; }
+    setMessage('');
+    renderTest(data);
+  } catch (e) {
+    setMessage('テストできませんでした: ' + e, 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  try {
+    const {ok, data} = await api('api/settings', values());
+    showErrors(data.errors);
+    if (!ok) { setMessage(data.error || '入力を確認してください。', 'bad'); return; }
+    setMessage('保存しました。次の接続から新しい接続先が使われます。', 'ok');
+  } catch (e) {
+    setMessage('保存できませんでした: ' + e, 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+load().catch((e) => setMessage('設定を読み込めませんでした: ' + e, 'bad'));
+refreshStatus();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>
