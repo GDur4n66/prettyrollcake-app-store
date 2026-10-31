@@ -1,0 +1,38 @@
+manifestVersion: 1.1
+id: prettyrollcake-remote-bitcoin
+implements:
+  - bitcoin
+category: bitcoin
+name: Remote Bitcoin
+version: "0.1.0"
+tagline: Use a bitcoind on another host as the Bitcoin Node for your apps
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-remote-bitcoin/icon.svg
+description: >-
+  Remote Bitcoin lets apps that depend on Bitcoin Node, such as Lightning Node
+  (LND) and Core Lightning, connect to a bitcoind running on another machine
+  instead of a node on this Umbrel.
+
+
+  It does not run a node itself. It only hands the remote node's RPC and ZMQ
+  connection details to the apps that choose it as their Bitcoin dependency.
+  Open the app to enter the remote node's address and credentials and to test
+  the connection.
+
+
+  Install this app first, then choose "Remote Bitcoin" in place of Bitcoin
+  Node when installing Lightning Node or Core Lightning. After changing the
+  settings, restart those apps so they pick up the new values.
+releaseNotes: >-
+  Initial release.
+developer: prettyrollcake
+website: https://github.com/GDur4n66/prettyrollcake-app-store
+dependencies: []
+repo: https://github.com/GDur4n66/prettyrollcake-app-store
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 33008
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store
