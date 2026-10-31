@@ -60,8 +60,31 @@ export APP_BITCOIN_ZMQ_HASHBLOCK_PORT="${remote_bitcoin_zmq_hashblock_port}"
 export APP_BITCOIN_ZMQ_SEQUENCE_PORT="${remote_bitcoin_zmq_sequence_port}"
 export APP_BITCOIN_ZMQ_HASHTX_PORT="${remote_bitcoin_zmq_hashtx_port}"
 
+# Stand-in for the bitcoind data directory. It holds only an RPC cookie file,
+# because some apps (Electrs) authenticate by reading <datadir>/.cookie
+# instead of taking a user name and password.
+export APP_BITCOIN_DATA_DIR="${EXPORTS_REMOTE_BITCOIN_DATA_ROOT}/bitcoin"
+{
+	if [[ -f "${EXPORTS_REMOTE_BITCOIN_SETTINGS}" ]]; then
+		case "${remote_bitcoin_network}" in
+			mainnet) remote_bitcoin_cookie_dir="${APP_BITCOIN_DATA_DIR}";;
+			testnet) remote_bitcoin_cookie_dir="${APP_BITCOIN_DATA_DIR}/testnet3";;
+			*) remote_bitcoin_cookie_dir="${APP_BITCOIN_DATA_DIR}/${remote_bitcoin_network}";;
+		esac
+		remote_bitcoin_cookie="${remote_bitcoin_cookie_dir}/.cookie"
+		remote_bitcoin_cookie_value="${remote_bitcoin_rpc_user}:${remote_bitcoin_rpc_pass}"
+		if [[ ! -f "${remote_bitcoin_cookie}" ]] || [[ "$(cat "${remote_bitcoin_cookie}")" != "${remote_bitcoin_cookie_value}" ]]; then
+			mkdir -p "${remote_bitcoin_cookie_dir}"
+			(umask 077 && printf '%s' "${remote_bitcoin_cookie_value}" > "${remote_bitcoin_cookie}.tmp")
+			# Apps that read the cookie (Electrs) run as uid 1000
+			chown 1000:1000 "${APP_BITCOIN_DATA_DIR}" "${remote_bitcoin_cookie_dir}" "${remote_bitcoin_cookie}.tmp" 2>/dev/null || true
+			mv -f "${remote_bitcoin_cookie}.tmp" "${remote_bitcoin_cookie}"
+		fi
+	fi
+} || echo "Warning (${EXPORTS_APP_ID}): Could not write the RPC cookie file for Electrs." >&2
+unset remote_bitcoin_cookie_dir remote_bitcoin_cookie remote_bitcoin_cookie_value
+
 # Not available for a remote node; keep the same names as the Bitcoin Node app
-export APP_BITCOIN_DATA_DIR="${EXPORTS_REMOTE_BITCOIN_DATA_ROOT}/bitcoin-unavailable"
 export APP_BITCOIN_IPC_ENABLED="false"
 export APP_BITCOIN_IPC_SOCKET_RELATIVE_PATH="node.sock"
 export APP_BITCOIN_RPC_HIDDEN_SERVICE="notyetset.onion"

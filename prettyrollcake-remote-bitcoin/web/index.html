@@ -135,7 +135,7 @@
     <h2>使い方</h2>
     <ol>
       <li>上で接続先を入れて「接続テスト」→「保存」。</li>
-      <li>Lightning Node または Core Lightning をインストールするとき、Bitcoin Node の代わりに <b>Remote Bitcoin</b> を選ぶ。</li>
+      <li>Lightning Node・Core Lightning・Electrs などをインストールするとき、Bitcoin Node の代わりに <b>Remote Bitcoin</b> を選ぶ。</li>
       <li>設定を変えたら、それを使うアプリ（Lightning Node など）を再起動すると反映されます。</li>
     </ol>
     <p class="hint" style="margin-top:12px">別ホストの bitcoin.conf の例（<code>rpcauth</code> は bitcoind 付属の <code>share/rpcauth/rpcauth.py</code> で作成）:</p>
@@ -145,7 +145,12 @@ rpcallowip=&lt;Umbrel の IP&gt;/32
 rpcauth=&lt;ユーザー名&gt;:&lt;ハッシュ&gt;
 # LND で必要（Core Lightning では不要）
 zmqpubrawblock=tcp://0.0.0.0:28332
-zmqpubrawtx=tcp://0.0.0.0:28333</pre>
+zmqpubrawtx=tcp://0.0.0.0:28333
+# Fulcrum・ElectrumX で必要
+txindex=1
+# Electrs はブロックを P2P（8333）で取得する
+listen=1
+whitelist=download@&lt;Umbrel の IP&gt;</pre>
   </section>
 </main>
 
@@ -226,7 +231,16 @@ function renderTest(r) {
   row(t, 'ブロック', `${r.rpc.blocks} / ${r.rpc.headers}`);
   const pct = (r.rpc.verificationProgress * 100).toFixed(2) + '%';
   row(t, '同期', r.rpc.initialBlockDownload ? `同期中 ${pct}` : `完了 ${pct}`, r.rpc.initialBlockDownload ? 'warn' : 'ok');
-  row(t, 'プルーン', r.rpc.pruned ? 'あり（LND・CLN では非推奨）' : 'なし', r.rpc.pruned ? 'warn' : '');
+  row(t, 'プルーン', r.rpc.pruned ? 'あり（LND・CLN・Electrum サーバでは非推奨）' : 'なし', r.rpc.pruned ? 'warn' : '');
+  if (r.rpc.txindex !== undefined) {
+    const text = !r.rpc.txindex ? 'なし（Fulcrum・ElectrumX には txindex=1 が必要）'
+      : r.rpc.txindexSynced ? 'あり' : 'あり（作成中）';
+    row(t, 'txindex', text, r.rpc.txindex && r.rpc.txindexSynced ? 'ok' : 'warn');
+  }
+  if (r.p2p) {
+    row(t, 'P2P（Electrs 用）', r.p2p.error ? `✗ ポート ${r.p2p.port} に届きません: ${r.p2p.error}` : `✓ ポート ${r.p2p.port} に届きます`,
+      r.p2p.error ? 'warn' : 'ok');
+  }
   for (const z of r.zmq) {
     let text, cls;
     if (z.error) { text = `✗ ポート ${z.port} に届きません: ${z.error}`; cls = 'bad'; }

@@ -4,7 +4,7 @@ implements:
   - bitcoin
 category: bitcoin
 name: Remote Bitcoin
-version: "0.1.0"
+version: "0.2.0"
 tagline: Use a bitcoind on another host as the Bitcoin Node for your apps
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-remote-bitcoin/icon.svg
 description: >-
@@ -23,7 +23,10 @@ description: >-
   Node when installing Lightning Node or Core Lightning. After changing the
   settings, restart those apps so they pick up the new values.
 releaseNotes: >-
-  Initial release.
+  Electrs now works with Remote Bitcoin. The app writes an RPC cookie file
+  that Electrs reads to log in to the remote node. Restart Electrs after
+  updating. Electrs also needs the remote node's P2P port (8333) to be
+  reachable from this Umbrel.
 developer: prettyrollcake
 website: https://github.com/GDur4n66/prettyrollcake-app-store
 dependencies: []

@@ -181,6 +181,18 @@ def run_test(settings):
     except RuntimeError:
         pass
 
+    # Fulcrum and ElectrumX need txindex
+    try:
+        indexes = rpc(settings, "getindexinfo") or {}
+        txindex = indexes.get("txindex")
+        result["rpc"]["txindex"] = bool(txindex)
+        result["rpc"]["txindexSynced"] = bool(txindex and txindex.get("synced"))
+    except RuntimeError:
+        pass
+
+    # Electrs downloads blocks over P2P
+    result["p2p"] = {"port": settings["p2pPort"], "error": tcp_check(settings["host"], settings["p2pPort"])}
+
     # What the remote node publishes, if it allows the call
     published = {}
     try:
