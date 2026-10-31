@@ -2,8 +2,9 @@ manifestVersion: 1
 id: prettyrollcake-blocktime
 category: bitcoin
 name: Blocktime
-version: "1.1.0"
+version: "1.1.1"
 tagline: Find the Bitcoin block for any moment in time
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-blocktime/icon.svg
 description: >-
   Enter a date and time to find the latest Bitcoin block that had been mined
   at that moment. Blocktime searches a mempool explorer of your choice: the
@@ -14,9 +15,12 @@ description: >-
   Future dates are clearly marked as estimates based on Bitcoin's average
   ten-minute block interval.
 releaseNotes: >-
-  Blocktime no longer requires the Mempool app. Choose which mempool to use
-  from the settings (gear icon, top right): the Mempool app on this Umbrel,
-  any mempool URL such as one on another host, or mempool.space.
+  New app icon.
+
+
+  1.1.0: Blocktime no longer requires the Mempool app. Choose which mempool
+  to use from the settings (gear icon, top right): the Mempool app on this
+  Umbrel, any mempool URL such as one on another host, or mempool.space.
 developer: prettyrollcake
 website: https://github.com/GDur4n66/prettyrollcake-app-store
 dependencies: []
