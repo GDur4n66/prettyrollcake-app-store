@@ -4,15 +4,23 @@ services:
   app_proxy:
     environment:
       APP_HOST: prettyrollcake-blocktime_web_1
-      APP_PORT: 80
+      APP_PORT: 8080
       PROXY_AUTH_ADD: "false"
 
   web:
-    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    image: python:3.12-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+    user: "1000:1000"
     restart: on-failure
+    init: true
+    command: ["python", "-I", "/server/server.py"]
     environment:
-      MEMPOOL_IP: $APP_MEMPOOL_IP
-      MEMPOOL_PORT: $APP_MEMPOOL_PORT
+      PORT: "8080"
+      WEB_DIR: /web
+      SETTINGS_FILE: /data/settings.json
+      # Umbrel's Mempool app (used when "Umbrel の Mempool" is selected)
+      UMBREL_MEMPOOL_URL: "http://10.21.21.26:3006"
+      UMBREL_MEMPOOL_PORT: "3006"
     volumes:
-      - ${APP_DATA_DIR}/web:/usr/share/nginx/html:ro
-      - ${APP_DATA_DIR}/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      - ${APP_DATA_DIR}/web:/web:ro
+      - ${APP_DATA_DIR}/server:/server:ro
+      - ${APP_DATA_DIR}/data:/data
