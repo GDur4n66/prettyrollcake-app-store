@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The web container runs as 1000:1000 and saves its settings in data/.
+# Make sure it can write there, also after updating from 1.0.0 (no data/).
+APP_DIR="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
+DATA_DIR="${APP_DIR}/data"
+
+mkdir -p "${DATA_DIR}"
+if [[ "$(stat -c "%u:%g" "${DATA_DIR}")" != "1000:1000" ]]; then
+	chown 1000:1000 "${DATA_DIR}"
+fi
