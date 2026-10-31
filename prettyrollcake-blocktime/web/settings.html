@@ -24,7 +24,7 @@ header a{color:inherit;text-decoration:none}
 <section class="card"><form id="form" class="settings" novalidate>
 <label class="choice"><input type="radio" name="source" value="umbrel"><span><b>Umbrel の Mempool</b><small>この Umbrel にインストールした Mempool アプリを使います。</small></span></label>
 <label class="choice"><input type="radio" name="source" value="mempool.space"><span><b>mempool.space</b><small>公開の mempool.space を使います。Mempool アプリが無くても使えますが、調べた日時のブロックへの問い合わせが mempool.space に届きます。</small></span></label>
-<label class="choice"><input type="radio" name="source" value="custom"><span style="flex:1"><b>任意の URL</b><small>別ホストの mempool など。例: http://192.168.1.20:3006</small><input id="customUrl" name="customUrl" type="url" placeholder="http://192.168.1.20:3006" autocomplete="off"><span class="err" data-for="customUrl"></span></span></label>
+<label class="choice"><input type="radio" name="source" value="custom"><span style="flex:1"><b>任意の URL</b><small>別ホストの mempool など。例: http://192.168.x.x:3006</small><input id="customUrl" name="customUrl" type="url" placeholder="http://192.168.x.x:3006" autocomplete="off"><span class="err" data-for="customUrl"></span></span></label>
 <div class="actions"><button type="button" id="testBtn">接続テスト</button><button type="submit" class="primary" id="saveBtn">保存</button></div>
 <p id="msg" role="status"></p>
 </form></section></main>

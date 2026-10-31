@@ -86,7 +86,7 @@ def validate(data):
     if source == "custom":
         normalized = normalize_url(custom)
         if not normalized:
-            errors["customUrl"] = "http:// か https:// で始まる URL を入れてください（例: http://192.168.1.20:3006）"
+            errors["customUrl"] = "http:// か https:// で始まる URL を入れてください（例: http://192.168.x.x:3006）"
         else:
             custom = normalized
     return {"source": source, "customUrl": custom}, errors
