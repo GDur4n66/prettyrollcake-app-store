@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   admin:
-    image: dpage/pgadmin4:9.10
+    image: dpage/pgadmin4:9.19@sha256:3591b3d02910dcd817dec6fcaa681c278ba6966945283dd0ea0042731c330c83
     restart: on-failure
     volumes:
       - ${APP_DATA_DIR}/data/pgAdmin:/var/lib/pgadmin
@@ -13,7 +13,7 @@ services:
       - 38800:80
 
   postgres:
-    image:  postgres:15.15
+    image: postgres:15.19@sha256:1149d80408a63791782d07a0e2bd3b06a7adbcdc86e8dcc18d6ee01bacfe04ab
     restart: on-failure
     user: 1000:1000 
     environment:

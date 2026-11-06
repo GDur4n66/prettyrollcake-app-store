@@ -4,7 +4,7 @@ name: postgres
 tagline: posgtreSQL & pgAdmin4
 icon: https://svgur.com/i/mvA.svg
 category: Development
-version: "15.15"
+version: "15.19"
 port: 38800
 description: >-
   Add your app's description here.
@@ -23,7 +23,8 @@ gallery:
   - https://i.imgur.com/yyVG0Jb.jpeg
   - https://i.imgur.com/yyVG0Jb.jpeg
 releaseNotes: >-
-  Add what's new in the latest version of your app here.
+  Updates PostgreSQL to 15.19 and pgAdmin to 9.19.
+  No dump/restore is needed.
 dependencies: []
 path: ""
 defaultUsername: "umbrel@example.com"

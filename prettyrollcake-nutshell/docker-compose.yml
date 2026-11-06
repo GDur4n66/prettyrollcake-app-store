@@ -8,7 +8,7 @@ services:
       APP_PORT: 3321
 
   mint:
-    image: cashubtc/nutshell:0.21.0@sha256:beed25e291357368e35e1698bf2e4645d97ed435232a8f8ff6501c77d67c0b90
+    image: cashubtc/nutshell:0.22.1@sha256:05b536e0e3d6beee75417ece319a3f89a687d34cfb3cc12c6b19d253104b450e
     restart: on-failure
     stop_grace_period: 1m
     command: ["poetry", "run", "mint"]
@@ -38,7 +38,7 @@ services:
     restart: always
 
   orchard:
-    image: ghcr.io/cashubtc/orchard:1.12@sha256:5c068b7ed9f30708de13cf34abc7aeb56de4bf5b7d837ee159a5c785c40d9480
+    image: ghcr.io/cashubtc/orchard:1.12.1@sha256:12b0f0ea9f87fa754829a9531392798fd6b48dbd913cbdd66338d87d0d7b1104
     restart: on-failure
     depends_on:
       - mint

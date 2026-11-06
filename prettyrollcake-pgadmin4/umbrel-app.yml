@@ -4,7 +4,7 @@ name: pgAdmin4
 tagline: pgAdmin 4 is a web based administration tool for the PostgreSQL database.
 icon: https://svgur.com/i/mvA.svg
 category: Development
-version: "9.10"
+version: "9.19"
 port: 38800
 description: >-
   Add your app's description here.
@@ -23,7 +23,7 @@ gallery:
   - https://i.imgur.com/yyVG0Jb.jpeg
   - https://i.imgur.com/yyVG0Jb.jpeg
 releaseNotes: >-
-  Add what's new in the latest version of your app here.
+  Updates pgAdmin to 9.19.
 dependencies: []
 path: ""
 defaultUsername: "umbrel@example.com"
