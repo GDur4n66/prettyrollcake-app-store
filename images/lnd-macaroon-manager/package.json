@@ -1,0 +1,13 @@
+{
+  "name": "lnd-macaroon-manager",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "LND の macaroon を作成・確認・削除し、ルートキー ID に名前を付けて管理する Web アプリ",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/main.js",
+    "hash-password": "node bin/hash-password.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  }
+}

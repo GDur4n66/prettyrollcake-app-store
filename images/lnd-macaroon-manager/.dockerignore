@@ -1,0 +1,9 @@
+.env
+.env.*
+data
+node_modules
+test
+deploy
+*.macaroon
+*.db
+.git
