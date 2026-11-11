@@ -1,0 +1,55 @@
+manifestVersion: 1
+id: prettyrollcake-macaroon-manager
+category: bitcoin
+name: Macaroon Manager
+version: "0.4.0"
+tagline: Create, inspect and revoke LND macaroons
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-macaroon-manager/icon.svg
+description: >-
+  Manage the macaroons of your Lightning Node (LND) from a web page.
+
+
+  - Create macaroons with exactly the permissions you need: presets
+  (read-only, invoices, receive and pay, admin), per-entity checkboxes, or
+  single RPC methods. Optionally add an expiry date or lock them to an IP
+  address or range.
+
+  - Organize macaroons in groups (one root key ID each, the unit that is
+  revoked together). Give each group a name, a memo and optionally its ID
+  number, and keep a record of what was created in it. The macaroons
+  themselves are not stored by the app: they are shown once, right after
+  they are created.
+
+  - Optionally place a new macaroon in the Lightning Node's data folder, in
+  macaroon-id-<ID>/ next to admin.macaroon (mode 600). Deleting the group
+  removes those files too.
+
+  - Delete a group to invalidate every macaroon created in it.
+
+  - Inspect any macaroon: its root key ID, permissions, caveats, the RPC
+  methods it can call, and whether your node still accepts it.
+
+  - See every *.macaroon file in the Lightning Node's data folder, what it
+  can do, and whether its file permissions let others read it.
+
+
+  The interface is in Japanese.
+
+
+  Log in with the password shown by Umbrel for this app. Anyone who can log
+  in can create admin macaroons, so treat this password like an admin
+  macaroon.
+releaseNotes: ""
+developer: prettyrollcake
+website: https://github.com/GDur4n66/prettyrollcake-app-store
+dependencies:
+  - lightning
+repo: https://github.com/GDur4n66/prettyrollcake-app-store
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 33620
+gallery: []
+path: ""
+defaultUsername: ""
+deterministicPassword: true
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store

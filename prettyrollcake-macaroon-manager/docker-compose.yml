@@ -1,0 +1,31 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: prettyrollcake-macaroon-manager_web_1
+      APP_PORT: 3620
+
+  web:
+    # Built from images/lnd-macaroon-manager by .github/workflows/lnd-macaroon-manager-image.yml
+    image: ghcr.io/gdur4n66/lnd-macaroon-manager:0.4.0@sha256:203cc180a73f35c8e566243d5f3fa49ce495382d832481a603848327b0d08914
+    user: "1000:1000"
+    restart: on-failure
+    init: true
+    stop_grace_period: 10s
+    volumes:
+      # Read-only: the app reads tls.cert, admin.macaroon and lists *.macaroon files
+      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
+      # Writable only here: the app creates macaroon-id-<ID>/ folders next to
+      # admin.macaroon and removes them when the root key ID is deleted
+      - ${APP_LIGHTNING_NODE_DATA_DIR}/data/chain/bitcoin/${APP_BITCOIN_NETWORK}:/lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}
+      - ${APP_DATA_DIR}/data:/data
+    environment:
+      LND_REST_URL: "https://${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_REST_PORT}"
+      # tls.cert itself is the only trusted certificate, so skipping the
+      # hostname check cannot connect to anything else
+      LND_TLS_VERIFY_HOSTNAME: "false"
+      LND_DIR: "/lnd"
+      LND_NETWORK: "${APP_BITCOIN_NETWORK}"
+      LND_MACAROON: "/lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}/admin.macaroon"
+      ADMIN_PASSWORD: "${APP_PASSWORD}"
