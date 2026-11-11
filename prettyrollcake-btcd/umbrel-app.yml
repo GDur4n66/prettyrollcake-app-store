@@ -1,0 +1,43 @@
+manifestVersion: 1
+id: prettyrollcake-btcd
+category: bitcoin
+name: btcd
+version: "0.27.0"
+tagline: A full Bitcoin node written in Go
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-btcd/icon.svg
+description: >-
+  btcd is an alternative full node implementation of Bitcoin written in Go.
+  It downloads, validates and serves the entire block chain using the exact
+  rules of Bitcoin Core, and relays transactions to other nodes. It does not
+  include a wallet.
+
+
+  This app runs btcd alongside a small status page. The page shows the sync
+  progress, peers and the RPC connection details (address, user, password and
+  the TLS certificate to download), and lets you choose the network (mainnet,
+  testnet4, testnet3 or signet), Tor-only mode, the transaction and address
+  indexes and the UTXO cache size.
+
+
+  btcd keeps its own copy of the block chain and does not replace the Bitcoin
+  Node app: other Umbrel apps cannot use it as their Bitcoin node.
+
+
+  Ports: P2P 48333, RPC 48334 (TLS). A Tor onion address is created for P2P.
+releaseNotes: >-
+  btcd v0.27.0 built from source, with a status and settings page.
+developer: btcsuite
+website: https://github.com/btcsuite/btcd
+dependencies: []
+repo: https://github.com/btcsuite/btcd
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 33010
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store
+backupIgnore:
+  - data/btcd/data
+  - data/btcd/logs

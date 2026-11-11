@@ -1,0 +1,62 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: prettyrollcake-btcd_web_1
+      APP_PORT: 8080
+
+  btcd:
+    # Built from images/btcd by .github/workflows/btcd-image.yml
+    image: ghcr.io/gdur4n66/btcd:0.27.0@sha256:74068f3832d6b3dea8253d1108e20465ab95437562f76be0a664bb27e4c2c7f4
+    # The RPC certificate is made for this host name (umbrel.local)
+    hostname: ${DEVICE_DOMAIN_NAME}
+    command: ["python", "-I", "/app/btcdapp.py", "launcher"]
+    restart: on-failure
+    init: true
+    stop_grace_period: 15m30s
+    ports:
+      - "48333:8333" # P2P
+      - "48334:8334" # RPC (TLS)
+    environment:
+      HOME: /data/btcd
+      BTCD_RPC_USER: umbrel
+      BTCD_RPC_PASS: ${APP_SEED}
+      BTCD_TOR_PROXY: ${APP_BTCD_TOR_PROXY_IP}:9050
+      BTCD_P2P_ONION: ${APP_BTCD_P2P_HIDDEN_SERVICE}
+      BTCD_WHITELIST: ${NETWORK_IP}/16
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+    networks:
+      default:
+        ipv4_address: ${APP_BTCD_IP}
+
+  web:
+    image: ghcr.io/gdur4n66/btcd:0.27.0@sha256:74068f3832d6b3dea8253d1108e20465ab95437562f76be0a664bb27e4c2c7f4
+    command: ["python", "-I", "/app/btcdapp.py", "web"]
+    restart: on-failure
+    init: true
+    environment:
+      BTCD_RPC_URL: https://${APP_BTCD_IP}:8334
+      BTCD_RPC_USER: umbrel
+      BTCD_RPC_PASS: ${APP_SEED}
+      BTCD_P2P_ONION: ${APP_BTCD_P2P_HIDDEN_SERVICE}
+      BTCD_INTERNAL_IP: ${APP_BTCD_IP}
+      BTCD_RPC_HOST_PORT: "48334"
+      BTCD_P2P_HOST_PORT: "48333"
+      DEVICE_DOMAIN_NAME: ${DEVICE_DOMAIN_NAME}
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+
+  tor:
+    image: ghcr.io/getumbrel/tor:0.4.9.11@sha256:e382b8629c0dfef6ceb396b062622d4e4e955b19d6f16b883fd2c0723ad5671a
+    user: "1000:1000"
+    restart: on-failure
+    volumes:
+      - ${APP_DATA_DIR}/torrc:/etc/tor/torrc:ro
+      - ${TOR_DATA_DIR}:/data
+    environment:
+      HOME: /tmp
+    networks:
+      default:
+        ipv4_address: ${APP_BTCD_TOR_PROXY_IP}

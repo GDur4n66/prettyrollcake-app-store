@@ -1,0 +1,9 @@
+SocksPort 0.0.0.0:9050
+
+# btcd P2P Hidden Service. btcd listens on 8333 on every network; the onion
+# also answers on the default P2P ports of testnet3, testnet4 and signet.
+HiddenServiceDir /data/app-$APP_ID-p2p
+HiddenServicePort 8333 $APP_BTCD_IP:8333
+HiddenServicePort 18333 $APP_BTCD_IP:8333
+HiddenServicePort 48333 $APP_BTCD_IP:8333
+HiddenServicePort 38333 $APP_BTCD_IP:8333
