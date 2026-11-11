@@ -1,0 +1,44 @@
+name: btcd image
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "images/btcd/**"
+      - ".github/workflows/btcd-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: echo "version=$(cat images/btcd/VERSION)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: images/btcd
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/gdur4n66/btcd:${{ steps.version.outputs.version }}
+            ghcr.io/gdur4n66/btcd:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/GDur4n66/prettyrollcake-app-store
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
