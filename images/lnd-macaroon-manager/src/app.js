@@ -5,6 +5,7 @@ import { ROOT } from './config.js';
 import { verifyPassword, createSessions, createLoginLimiter } from './auth.js';
 import * as M from './macaroon.js';
 import { scanMacaroonFiles } from './files.js';
+import { createMacDirs } from './macdirs.js';
 
 const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -31,6 +32,7 @@ function parseRootKeyId(v) {
 export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public') }) {
   const sessions = createSessions({ hours: config.sessionHours });
   const limiter = createLoginLimiter();
+  const dirs = createMacDirs({ baseDir: config.macaroonSaveDir });
   // アプリ自身の macaroon（後から現れることもあるので毎回読む）
   function own() {
     try {
@@ -73,12 +75,73 @@ export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public')
           memo: k?.memo ?? '',
           inLnd: inLnd.has(id),
           deletedAt: k?.deleted_at ?? null,
+          status: groupStatus({ inLnd: inLnd.has(id), deletedAt: k?.deleted_at, bakeCount: mine.length }),
           isDefault: id === '0',
           isOwn: id === ownId,
           bakes: mine,
         };
       }),
     };
+  }
+
+  /**
+   * グループ（＝ルートキー ID）の状態
+   * - active: LND にある
+   * - unused: このアプリで作っただけで、まだ macaroon がない（LND には最初の macaroon を作った時にできる）
+   * - missing: macaroon を作ったのに LND から消えている（lncli で削除・macaroon の全リセットなど）
+   * - deleted: このアプリで削除した
+   */
+  function groupStatus({ inLnd, deletedAt, bakeCount }) {
+    if (deletedAt) return 'deleted';
+    if (inLnd) return 'active';
+    return bakeCount > 0 ? 'missing' : 'unused';
+  }
+
+  /** 空のグループを作る（番号だけ確保。LND にはまだ何も作らない）。番号は指定もできる */
+  async function createGroup(body) {
+    const name = String(body.name ?? '').trim().slice(0, 100);
+    const memo = String(body.memo ?? '').trim().slice(0, 2000);
+    if (!name) throw new HttpError(400, 'グループの名前を入れてください');
+    const lndIds = await lnd.listIds();
+    let rootKeyId;
+    if (body.rootKeyId === undefined || body.rootKeyId === null || String(body.rootKeyId).trim() === '') {
+      rootKeyId = nextId(lndIds);
+    } else {
+      rootKeyId = parseRootKeyId(body.rootKeyId);
+      if (rootKeyId === '0') throw new HttpError(400, 'ID 0 は LND 標準のグループです。別の番号にしてください');
+      if (lndIds.includes(rootKeyId)) {
+        throw new HttpError(409, `ID ${rootKeyId} は LND にもうあります。名前を付けるなら、そのグループを開いて編集してください`);
+      }
+      const rec = db.getKey(rootKeyId);
+      if (rec) {
+        throw new HttpError(409, rec.deleted_at
+          ? `ID ${rootKeyId} は削除したグループの番号です。別の番号にしてください`
+          : `ID ${rootKeyId} はもう使われています（${rec.name || '名前なし'}）`);
+      }
+    }
+    db.upsertKey(rootKeyId, { name, memo });
+    return { rootKeyId };
+  }
+
+  /** 作った macaroon を LND のフォルダの macaroon-id-<ID>/ に置く */
+  async function saveToDir(body) {
+    let bytes;
+    let info;
+    try {
+      bytes = M.toBytes(body.macaroon ?? '');
+      info = M.inspect(bytes);
+    } catch (e) {
+      throw new HttpError(400, e.message);
+    }
+    const id = info.rootKeyId;
+    if (String(body.rootKeyId ?? '') !== id) throw new HttpError(400, 'macaroon の ID とグループが一致しません');
+    if (id === '0') throw new HttpError(400, 'ID 0（LND 標準）には置きません');
+    if (db.getKey(id)?.deleted_at || !(await lnd.listIds()).includes(id)) {
+      throw new HttpError(400, `ID ${id} のグループは LND にありません`);
+    }
+    const r = dirs.save({ rootKeyId: id, fileName: body.fileName, bytes, overwrite: body.overwrite === true });
+    db.setSavedPath(info.fingerprint, r.path);
+    return r;
   }
 
   function nextId(lndIds) {
@@ -120,7 +183,11 @@ export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public')
       rootKeyId = parseRootKeyId(body.rootKeyId);
       const rec = db.getKey(rootKeyId);
       if (!lndIds.includes(rootKeyId)) {
-        if (rec?.deleted_at) throw new HttpError(400, `ID ${rootKeyId} は削除済みです。新しい ID で作ってください`);
+        if (rec?.deleted_at) throw new HttpError(400, `ID ${rootKeyId} は削除済みです。新しいグループで作ってください`);
+        // 同じ番号で作り直すと、もう使えない古い記録と新しいものが混ざるため断る
+        if (db.bakesOf(rootKeyId).length) {
+          throw new HttpError(400, `ID ${rootKeyId} は LND から消えています（前に作った macaroon は使えません）。新しいグループで作ってください`);
+        }
         isNew = true;
       }
     }
@@ -129,7 +196,7 @@ export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public')
     }
     const name = String(body.name ?? '').trim().slice(0, 100);
     const memo = String(body.memo ?? '').trim().slice(0, 2000);
-    if (isNew && !db.getKey(rootKeyId)?.name && !name) throw new HttpError(400, '新しい ID には名前を付けてください');
+    if (isNew && !db.getKey(rootKeyId)?.name && !name) throw new HttpError(400, '新しいグループには名前を付けてください');
 
     let expiresAt = null;
     if (body.expiresAt) {
@@ -180,7 +247,7 @@ export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public')
     const firstOp = info.ops.find((o) => o.actions.length > 0);
     const hasIpLock = info.caveats.some((c) => c.kind === 'ip' || c.kind === 'iprange');
     if (!lndIds.includes(info.rootKeyId)) {
-      check = { valid: false, reason: 'この ID は LND にありません（削除済み、または別のノードの macaroon）' };
+      check = { valid: false, reason: 'このグループ（ID）は LND にありません（削除済み、または別のノードの macaroon）' };
     } else if (firstOp) {
       try {
         const perm = { entity: firstOp.entity, action: firstOp.actions[0] };
@@ -256,9 +323,22 @@ export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public')
     if (id === '0') throw new HttpError(400, 'ID 0 は LND の標準 ID で削除できません');
     if (id === own().id) throw new HttpError(400, 'このアプリ自身が使っている ID は削除できません');
     const lndIds = await lnd.listIds();
+    let removed = false;
     if (lndIds.includes(id)) await lnd.deleteId(id);
-    db.markDeleted(id);
-    return { deleted: true };
+    else if (!db.bakesOf(id).length) {
+      // macaroon を一度も作っていない空のグループは、記録ごと消す
+      db.removeKey(id);
+      removed = true;
+    }
+    if (!removed) db.markDeleted(id);
+    // LND から消えた（＝その ID の macaroon はもう使えない）ので、置いたファイルも片付ける
+    let cleanup;
+    try {
+      cleanup = dirs.removeGroup(id);
+    } catch (e) {
+      cleanup = { error: e.message };
+    }
+    return { deleted: true, removed, cleanup };
   }
 
   // --- HTTP ---
@@ -346,7 +426,11 @@ export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public')
 
       if (path === '/api/state' && req.method === 'GET') {
         const [s, info] = await Promise.all([state(), lnd.getInfo().catch(() => null)]);
-        return send(res, 200, { ...s, node: info && { alias: info.alias, pubkey: info.identity_pubkey, version: info.version } });
+        return send(res, 200, {
+          ...s,
+          save: dirs.status(),
+          node: info && { alias: info.alias, pubkey: info.identity_pubkey, version: info.version },
+        });
       }
       if (path === '/api/permissions' && req.method === 'GET') {
         return send(res, 200, { methods: await permissions() });
@@ -359,6 +443,12 @@ export function createApp({ config, lnd, db, publicDir = resolve(ROOT, 'public')
       }
       if (path === '/api/inspect' && req.method === 'POST') {
         return send(res, 200, await inspect(await readJson(req)));
+      }
+      if (path === '/api/save' && req.method === 'POST') {
+        return send(res, 200, await saveToDir(await readJson(req)));
+      }
+      if (path === '/api/ids' && req.method === 'POST') {
+        return send(res, 200, await createGroup(await readJson(req)));
       }
       const m = path.match(/^\/api\/ids\/([^/]+)$/);
       if (m && req.method === 'PATCH') {

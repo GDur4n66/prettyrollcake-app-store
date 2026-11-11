@@ -24,34 +24,29 @@
 
     <section id="app" hidden>
       <nav class="tabs">
-        <button data-tab="list" class="active">ID 一覧</button>
-        <button data-tab="create">作る</button>
-        <button data-tab="inspect">確かめる</button>
-        <button data-tab="files">LND のファイル</button>
+        <a href="#groups" data-tab="groups" class="active">グループ</a>
+        <a href="#inspect" data-tab="inspect">確かめる</a>
+        <a href="#files" data-tab="files">LND のファイル</a>
       </nav>
       <p class="error" id="global-error"></p>
 
-      <div id="tab-list" class="tab"></div>
+      <!-- グループ一覧 -->
+      <div id="view-groups" class="view"></div>
 
-      <div id="tab-create" class="tab" hidden>
-        <form id="create-form" class="card">
-          <fieldset>
-            <legend>ルートキー ID</legend>
-            <label class="inline"><input type="radio" name="idmode" value="new" checked> 新しい ID で作る</label>
-            <label class="inline"><input type="radio" name="idmode" value="existing"> 既存の ID で作る</label>
-            <select name="rootKeyId" disabled></select>
-            <p class="hint" id="id-hint">新しい ID で作ると、あとでその ID を削除するだけで、この macaroon をまとめて無効にできます。</p>
-          </fieldset>
+      <!-- グループの詳細 -->
+      <div id="view-group" class="view" hidden></div>
 
-          <div class="row">
-            <label>名前<input name="keyName" maxlength="100" placeholder="例: スマホのウォレット"></label>
-            <label>この macaroon のメモ（任意）<input name="note" maxlength="200" placeholder="例: 受け取り専用で発行"></label>
-          </div>
-          <label>ID のメモ（任意）<textarea name="memo" rows="2" maxlength="2000"></textarea></label>
+      <!-- グループに macaroon を作る -->
+      <div id="view-bake" class="view" hidden>
+        <div id="bake-head"></div>
+        <div id="bake-result" class="card result" hidden></div>
+        <form id="bake-form" class="card">
+          <label>この macaroon の名前（任意）<input name="note" maxlength="200" placeholder="例: 受け取り専用・Zeus 用"></label>
+          <p class="hint">同じグループの中で見分けるための名前です。ファイルで保存するときのファイル名にも使います。</p>
 
           <fieldset>
             <legend>権限</legend>
-            <div class="notice warn" id="create-notice" hidden></div>
+            <div class="notice warn" id="bake-notice" hidden></div>
             <div class="presets" id="presets"></div>
             <table class="perm-grid" id="perm-grid"></table>
             <details id="uri-box">
@@ -86,15 +81,13 @@
           </fieldset>
 
           <button type="submit" class="primary">macaroon を作る</button>
-          <p class="error" id="create-error"></p>
+          <p class="error" id="bake-error"></p>
         </form>
-
-        <div id="create-result" class="card result" hidden></div>
       </div>
 
-      <div id="tab-files" class="tab" hidden></div>
+      <div id="view-files" class="view" hidden></div>
 
-      <div id="tab-inspect" class="tab" hidden>
+      <div id="view-inspect" class="view" hidden>
         <form id="inspect-form" class="card">
           <label>macaroon（hex または base64）<textarea name="macaroon" rows="4" spellcheck="false" autocomplete="off"></textarea></label>
           <label>またはファイルを選ぶ（.macaroon）<input type="file" id="inspect-file"></label>

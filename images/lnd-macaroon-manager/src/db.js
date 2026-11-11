@@ -27,6 +27,10 @@ export function openDb(path) {
     );
     CREATE INDEX IF NOT EXISTS bakes_root ON bakes(root_key_id);
   `);
+  // 0.4.0: LND のフォルダに置いた場所
+  if (!db.prepare('PRAGMA table_info(bakes)').all().some((c) => c.name === 'saved_path')) {
+    db.exec('ALTER TABLE bakes ADD COLUMN saved_path TEXT');
+  }
 
   const now = () => new Date().toISOString();
   const q = {
@@ -36,10 +40,12 @@ export function openDb(path) {
     updateKey: db.prepare('UPDATE root_keys SET name = ?, memo = ?, updated_at = ? WHERE root_key_id = ?'),
     reviveKey: db.prepare('UPDATE root_keys SET deleted_at = NULL, updated_at = ? WHERE root_key_id = ?'),
     deleteKey: db.prepare('UPDATE root_keys SET deleted_at = ?, updated_at = ? WHERE root_key_id = ?'),
+    removeKey: db.prepare('DELETE FROM root_keys WHERE root_key_id = ?'),
     insertBake: db.prepare('INSERT INTO bakes (root_key_id, created_at, permissions, caveats, note, fingerprint) VALUES (?, ?, ?, ?, ?, ?)'),
     bakesOf: db.prepare('SELECT * FROM bakes WHERE root_key_id = ? ORDER BY id DESC'),
     allBakes: db.prepare('SELECT * FROM bakes ORDER BY id DESC'),
     bakeByFp: db.prepare('SELECT * FROM bakes WHERE fingerprint = ?'),
+    setSavedPath: db.prepare('UPDATE bakes SET saved_path = ? WHERE fingerprint = ?'),
   };
   const bakeRow = (r) => r && { ...r, permissions: JSON.parse(r.permissions), caveats: JSON.parse(r.caveats) };
 
@@ -61,10 +67,13 @@ export function openDb(path) {
       if (!q.getKey.get(String(id))) q.insertKey.run(String(id), '', '', t, t);
       q.deleteKey.run(t, t, String(id));
     },
+    /** 記録ごと消す（macaroon を一度も作っていないグループだけ） */
+    removeKey: (id) => q.removeKey.run(String(id)),
     addBake: ({ rootKeyId, permissions, caveats, note, fingerprint }) =>
       q.insertBake.run(String(rootKeyId), now(), JSON.stringify(permissions), JSON.stringify(caveats), note ?? '', fingerprint),
     bakesOf: (id) => q.bakesOf.all(String(id)).map(bakeRow),
     allBakes: () => q.allBakes.all().map(bakeRow),
     bakeByFingerprint: (fp) => bakeRow(q.bakeByFp.get(fp)),
+    setSavedPath: (fp, path) => q.setSavedPath.run(path, fp),
   };
 }

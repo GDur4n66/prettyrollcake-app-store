@@ -31,6 +31,8 @@ export function loadConfig(env = process.env) {
     lndRestUrl: (env.LND_REST_URL || 'https://127.0.0.1:8080').replace(/\/$/, ''),
     lndTlsCert: expand(env.LND_TLS_CERT || `${lndDir}/tls.cert`),
     lndMacaroon: expand(env.LND_MACAROON || `${lndDir}/data/chain/bitcoin/${network}/macaroon-manager.macaroon`),
+    // 作った macaroon を置く場所（この下に macaroon-id-<ID>/ を作る）。off で使わない
+    macaroonSaveDir: env.MACAROON_SAVE_DIR === 'off' ? null : expand(env.MACAROON_SAVE_DIR || `${lndDir}/data/chain/bitcoin/${network}`),
     dbPath: expand(env.DB_PATH || resolve(ROOT, 'data/app.db')),
     passwordHash: env.ADMIN_PASSWORD_HASH || '',
     // 平文のパスワード（Umbrel の APP_PASSWORD など）。ハッシュが無いときだけ使う

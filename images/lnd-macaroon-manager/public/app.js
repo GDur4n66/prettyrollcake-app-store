@@ -26,7 +26,7 @@ const ENTITY = {
   message: ['メッセージ', 'read: 署名の検証 / write: ノード鍵で署名'],
   peers: ['ピア', 'read: 一覧 / write: 接続・切断'],
   signer: ['署名器', 'generate: 任意の鍵で署名（危険）'],
-  macaroon: ['macaroon', 'generate: macaroon を作る（管理者と同じ）/ write: ID の削除'],
+  macaroon: ['macaroon', 'generate: macaroon を作る（管理者と同じ）/ write: グループ（ID）の削除'],
 };
 const ACTION = { read: '読み取り', write: '書き込み', generate: '生成' };
 // このアプリが説明・危険度を知っている権限（LND 0.21 時点）。これ以外は「新しい権限」として扱う
@@ -46,7 +46,10 @@ const PRESETS = [
   ['すべて外す', 'none'],
 ];
 
-const state = { ids: [], files: null, filesDir: '', ownId: null, methods: {}, perms: [], selected: new Set(), uris: new Set() };
+const state = {
+  ids: [], files: null, filesDir: '', ownId: null, methods: {}, perms: [], selected: new Set(), uris: new Set(),
+  view: null, groupId: null, bakeId: null, draft: null, newGroupOpen: false, save: { enabled: false, dir: null, reason: '' },
+};
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -114,12 +117,13 @@ function pruneRemoved() {
   return removed;
 }
 
+/** 作る画面のお知らせ（読み込んだ権限のうち、廃止されたものを外したこと） */
 function showRemovedNotice(removed) {
-  const el = $('#create-notice');
+  const el = $('#bake-notice');
   el.replaceChildren();
   el.hidden = removed.length === 0;
   if (removed.length) {
-    el.append(`前回の権限のうち、今の LND に無いもの（廃止された権限・RPC）を外しました: `, ...removed.map((k) => h('code', {}, k)), ' ');
+    el.append(`前回の権限のうち、今の LND に無いもの（廃止された権限・RPC）を外しました: `, ...removed.map((k) => h('code', {}, k)));
   }
 }
 
@@ -141,11 +145,42 @@ function riskText(perms) {
   if (set.has('macaroon:generate')) return ['danger', 'macaroon を作れるため、管理者と同じ強さです（どんな権限の macaroon でも作れます）'];
   if (set.has('signer:generate')) return ['danger', '任意の鍵で署名できるため、資金を動かせる可能性があります'];
   if (set.has('offchain:write') || set.has('onchain:write')) return ['danger', '資金を送れます'];
-  if (set.has('macaroon:write')) return ['warn', 'macaroon の ID を削除できます（他の macaroon を無効にできます）'];
+  if (set.has('macaroon:write')) return ['warn', 'グループ（ID）を削除できます（ほかの macaroon をまとめて無効にできます）'];
   return null;
 }
 
-// ---------- 画面切り替え ----------
+// ---------- グループ（＝ルートキー ID） ----------
+const findGroup = (id) => state.ids.find((g) => g.rootKeyId === String(id));
+const groupName = (g) => g?.name || (g?.rootKeyId === '0' ? 'LND 標準' : '（名前なし）');
+const groupLabel = (g) => `「${groupName(g)}」（ID ${g.rootKeyId}）`;
+/** このアプリで macaroon を作れるグループか（ID 0 と、このアプリ自身のグループは作らない） */
+const canBake = (g) => !!g && !g.isDefault && !g.isOwn && (g.status === 'active' || g.status === 'unused');
+const canDelete = (g) => !!g && !g.isDefault && !g.isOwn && g.status !== 'deleted';
+
+function statusBadge(g) {
+  switch (g.status) {
+    case 'active': return h('span', { class: 'badge ok' }, '有効');
+    case 'unused': return h('span', { class: 'badge' }, 'まだ macaroon なし');
+    case 'missing': return h('span', { class: 'badge danger' }, 'LND から消えています');
+    default: return h('span', { class: 'badge danger' }, `削除済み ${fmtDate(g.deletedAt)}`);
+  }
+}
+
+function groupLabels(g) {
+  return [
+    g.isDefault && h('span', { class: 'badge' }, 'admin / readonly / invoice など'),
+    g.isOwn && h('span', { class: 'badge' }, 'このアプリが使用中'),
+  ];
+}
+
+function bakeCountText(g) {
+  if (g.bakes.length) return `macaroon ${g.bakes.length} 個（最新 ${fmtDate(g.bakes[0].created_at)}）`;
+  if (g.isDefault) return 'LND が最初から持っている macaroon';
+  if (g.status === 'active') return 'このアプリで作った記録なし（lncli などで作成）';
+  return '';
+}
+
+// ---------- 画面の切り替え（URL の # で決める） ----------
 function showLogin() {
   $('#login').hidden = false;
   $('#app').hidden = true;
@@ -157,122 +192,273 @@ async function showApp() {
   $('#app').hidden = false;
   $('#logout').hidden = false;
   await Promise.all([loadState(), loadPermissions()]);
+  route();
   loadFiles();
 }
 
-function switchTab(name) {
-  for (const b of document.querySelectorAll('.tabs button')) b.classList.toggle('active', b.dataset.tab === name);
-  for (const t of document.querySelectorAll('.tab')) t.hidden = t.id !== `tab-${name}`;
+function go(hash) {
+  if (location.hash === hash) route();
+  else location.hash = hash;
+}
+
+function showView(view, tab) {
+  for (const v of document.querySelectorAll('.view')) v.hidden = v.id !== `view-${view}`;
+  for (const a of document.querySelectorAll('.tabs a')) a.classList.toggle('active', a.dataset.tab === tab);
   $('#global-error').textContent = '';
+  state.view = view;
   window.scrollTo(0, 0);
 }
 
-// ---------- 一覧 ----------
+function route() {
+  const hash = location.hash || '#groups';
+  // 作った macaroon の表示は、画面を離れたら消す
+  if (!hash.endsWith('/bake')) clearBakeResult();
+  let m;
+  if ((m = hash.match(/^#group\/(\d+)\/bake$/))) {
+    showView('bake', 'groups');
+    openBake(m[1]);
+  } else if ((m = hash.match(/^#group\/(\d+)$/))) {
+    showView('group', 'groups');
+    state.groupId = m[1];
+    renderGroup();
+  } else if (hash === '#inspect') {
+    showView('inspect', 'inspect');
+  } else if (hash === '#files') {
+    showView('files', 'files');
+    loadFiles();
+  } else {
+    showView('groups', 'groups');
+    renderList();
+  }
+}
+
+/** 一覧を読み直したあと、今の画面を描き直す（作成フォームは入力中なので見出しだけ） */
+function rerender() {
+  if (state.view === 'groups') renderList();
+  else if (state.view === 'group') renderGroup();
+  else if (state.view === 'bake') renderBakeHead();
+}
+
 async function loadState() {
   try {
     const s = await api('GET', '/api/state');
     state.ids = s.ids;
     state.ownId = s.ownId;
+    state.save = s.save ?? state.save;
     $('#node').textContent = s.node ? `${s.node.alias}（LND ${s.node.version.split(' ')[0]}）` : 'LND に接続できません';
-    renderList();
-    renderIdSelect();
+    rerender();
   } catch (e) {
     $('#global-error').textContent = e.message;
   }
 }
 
+// ---------- グループ一覧 ----------
 function renderList() {
-  const root = $('#tab-list');
-  root.replaceChildren();
-  const active = state.ids.filter((i) => !i.deletedAt);
-  const deleted = state.ids.filter((i) => i.deletedAt);
-  root.append(
+  const root = $('#view-groups');
+  const groups = state.ids.filter((g) => !g.isDefault && g.status !== 'deleted');
+  const standard = state.ids.find((g) => g.isDefault);
+  const deleted = state.ids.filter((g) => g.status === 'deleted');
+  root.replaceChildren(...[
     h('p', { class: 'hint' },
-      'LND は作った macaroon 自体を覚えていません。ここでは「ルートキー ID」ごとに名前と作成記録を残します。ID を削除すると、その ID で作った macaroon はすべて使えなくなります。'),
-  );
-  if (!active.length) root.append(h('p', { class: 'empty' }, 'ID がありません'));
-  for (const item of active) root.append(idCard(item));
-  if (deleted.length) {
-    root.append(h('details', {}, h('summary', {}, `削除済みの ID（${deleted.length}）`), ...deleted.map(idCard)));
-  }
+      'グループは「まとめて止める単位」です。同じグループの macaroon は権限が違っても全部同時に有効で、1 個だけ止めることはできません。グループを削除すると、その中の macaroon がすべて使えなくなります。渡す相手（アプリ・人）ごとにグループを分けておくと、あとで相手ごとに止められます。'),
+    h('div', { class: 'toolbar' },
+      h('button', { class: 'primary', type: 'button', onclick: () => toggleNewGroup(true) }, '＋ グループを作る')),
+    newGroupForm(),
+    groups.length === 0 && h('p', { class: 'empty' }, 'まだグループがありません'),
+    ...groups.map(groupCard),
+    standard && h('h2', { class: 'section' }, 'LND 標準'),
+    standard && groupCard(standard),
+    deleted.length > 0 && h('details', {}, h('summary', {}, `削除したグループ（${deleted.length}）`), ...deleted.map(groupCard)),
+  ].filter(Boolean));
 }
 
-function idCard(item) {
-  const status = item.deletedAt
-    ? h('span', { class: 'badge danger' }, `削除済み ${fmtDate(item.deletedAt)}`)
-    : item.inLnd
-      ? h('span', { class: 'badge ok' }, '有効')
-      : h('span', { class: 'badge danger' }, 'LND にありません');
-  const labels = [
-    item.isDefault && h('span', { class: 'badge' }, 'LND 標準（admin.macaroon など・削除不可）'),
-    item.isOwn && h('span', { class: 'badge' }, 'このアプリが使用中'),
-  ];
-  const latest = item.bakes[0];
-  const card = h('div', { class: `card id-card${item.deletedAt ? ' deleted' : ''}` },
+function groupCard(g) {
+  const files = filesOf(g.rootKeyId);
+  return h('a', { class: `card group-card${g.status === 'deleted' ? ' deleted' : ''}`, href: `#group/${g.rootKeyId}` },
     h('div', { class: 'head' },
-      h('span', { class: 'id' }, `ID ${item.rootKeyId}`),
-      h('span', { class: 'name' }, item.name || (item.isDefault ? '標準' : '（名前なし）')),
-      status, labels),
-    item.memo && h('p', { class: 'muted' }, item.memo),
-    filesOf(item.rootKeyId).length > 0 &&
-      h('div', {}, h('span', { class: 'muted' }, 'LND のフォルダにあるファイル: '),
-        filesOf(item.rootKeyId).map((f) => h('button', { class: 'link file-link', type: 'button', onclick: () => showFileDetail(f) }, f.name))),
-    latest
-      ? h('div', {}, h('span', { class: 'muted' }, '最新の権限: '), permBadges(latest.permissions), caveatBadges(latest.caveats))
-      : !item.isDefault && h('p', { class: 'hint' }, 'このアプリで作った記録はありません（lncli などで作られた ID）'),
-    item.bakes.length > 0 &&
-      h('details', { class: 'bakes' },
-        h('summary', {}, `作成記録（${item.bakes.length} 件）`),
-        h('ul', {}, item.bakes.map((b) =>
-          h('li', {},
-            h('div', {}, fmtDate(b.created_at), ' ', h('span', { class: 'mono', title: '署名の先頭（確かめるタブで照合に使います）' }, b.fingerprint), b.note && ` — ${b.note}`),
-            h('div', {}, permBadges(b.permissions), caveatBadges(b.caveats)))))),
+      h('span', { class: 'name' }, groupName(g)),
+      h('span', { class: 'id' }, `ID ${g.rootKeyId}`),
+      statusBadge(g), groupLabels(g)),
+    g.memo && h('p', { class: 'muted memo' }, g.memo),
+    h('p', { class: 'hint' },
+      [bakeCountText(g), files.length > 0 && `LND のフォルダにファイル ${files.length} 個`].filter(Boolean).join(' ・ ')),
   );
-  if (!item.deletedAt) {
-    const actions = h('div', { class: 'actions' });
-    actions.append(h('button', { onclick: () => editName(item) }, '名前・メモを編集'));
-    if (item.inLnd && !item.isDefault) {
-      actions.append(h('button', { onclick: () => startCreate(item.rootKeyId, latest?.permissions ?? []) }, 'この ID で作る・権限を足す'));
-    }
-    if (!item.isDefault && !item.isOwn) {
-      actions.append(h('button', { class: 'danger', onclick: () => deleteId(item) }, '削除（無効化）'));
-    }
-    card.append(actions);
-  }
-  return card;
 }
 
-async function editName(item) {
-  const name = prompt(`ID ${item.rootKeyId} の名前`, item.name);
-  if (name === null) return;
-  const memo = prompt(`ID ${item.rootKeyId} のメモ`, item.memo);
-  if (memo === null) return;
+function newGroupForm() {
+  const form = h('form', { class: 'card', id: 'new-group', hidden: !state.newGroupOpen, onsubmit: submitNewGroup },
+    h('h2', {}, '新しいグループ'),
+    h('label', {}, '名前', h('input', { name: 'name', maxlength: '100', required: true, placeholder: '例: スマホのウォレット・POS レジ・LNbits' })),
+    h('label', {}, 'メモ（任意）', h('textarea', { name: 'memo', rows: '2', maxlength: '2000', placeholder: '例: 誰に渡したか・どこで使うか' })),
+    h('label', {}, '番号（ID・任意）', h('input', { name: 'rootKeyId', inputmode: 'numeric', pattern: '[1-9][0-9]*', placeholder: '空欄なら自動（これまでの最大 + 1）' })),
+    h('p', { class: 'hint' }, 'LND には、最初の macaroon を作った時にこの番号でできます。0・使用中・削除した番号は使えません。'),
+    h('div', { class: 'copy-row' },
+      h('button', { type: 'submit', class: 'primary' }, '作る'),
+      h('button', { type: 'button', onclick: () => toggleNewGroup(false) }, 'やめる')),
+    h('p', { class: 'error', id: 'new-group-error' }));
+  return form;
+}
+
+function toggleNewGroup(open) {
+  state.newGroupOpen = open;
+  const form = $('#new-group');
+  if (!form) return;
+  form.hidden = !open;
+  if (open) form.name.focus();
+}
+
+async function submitNewGroup(ev) {
+  ev.preventDefault();
+  const form = ev.target;
   try {
-    await api('PATCH', `/api/ids/${encodeURIComponent(item.rootKeyId)}`, { name, memo });
+    const r = await api('POST', '/api/ids', { name: form.name.value, memo: form.memo.value, rootKeyId: form.rootKeyId.value });
+    state.newGroupOpen = false;
     await loadState();
+    go(`#group/${r.rootKeyId}`);
   } catch (e) {
-    $('#global-error').textContent = e.message;
+    $('#new-group-error').textContent = e.message;
   }
 }
 
-async function deleteId(item) {
-  const label = item.name ? `「${item.name}」（ID ${item.rootKeyId}）` : `ID ${item.rootKeyId}`;
-  const msg = `${label}を LND から削除します。\n\nこの ID で作った macaroon はすべて、すぐに使えなくなります。元に戻せません。\n\n確認のため ID の番号を入力してください。`;
-  const typed = prompt(msg);
-  if (typed === null) return;
-  if (typed.trim() !== item.rootKeyId) {
-    alert('番号が一致しないため、削除しませんでした');
+// ---------- グループの詳細 ----------
+function statusNotice(g) {
+  if (g.isDefault) {
+    return [
+      h('div', { class: 'notice' },
+        'LND が最初から持っているグループです（admin / readonly / invoice.macaroon など）。LND が削除を拒否するので、ここに作った macaroon は止められません。そのため、このアプリではこのグループに macaroon を作りません。漏れたときは、LND のパスワード変更と一緒に鍵を作り直します（',
+        h('code', {}, 'lncli changepassword --new_mac_root_key'), '）。'),
+      g.isOwn && h('div', { class: 'notice warn' },
+        'このアプリも ID 0 の macaroon で LND につないでいます。漏れても止められないので、別の番号で作り直すのがおすすめです（README の「アプリ自身の macaroon」）。Umbrel 版は admin.macaroon を使うため対象外です。'),
+    ];
+  }
+  if (g.isOwn) {
+    return h('div', { class: 'notice' }, 'このアプリが LND につなぐのに使っているグループです。削除するとアプリが動かなくなるので、ここからは削除できず、macaroon も作りません。');
+  }
+  switch (g.status) {
+    case 'unused':
+      return h('div', { class: 'notice' }, `まだ macaroon がありません。最初の macaroon を作った時に、LND にこのグループ（ID ${g.rootKeyId}）ができます。`);
+    case 'missing':
+      return h('div', { class: 'notice danger' },
+        'このグループは LND から消えています。lncli で削除されたか、LND の macaroon がすべてリセットされた可能性があります。このグループで作った macaroon はもう使えません。同じ番号では作り直せないので、新しいグループを作ってください。');
+    case 'deleted':
+      return h('div', { class: 'notice danger' }, `${fmtDate(g.deletedAt)} に削除しました。このグループの macaroon はもう使えません。`);
+    default:
+      return null;
+  }
+}
+
+function renderGroup() {
+  const root = $('#view-group');
+  const g = findGroup(state.groupId);
+  const back = h('a', { href: '#groups', class: 'back' }, '← グループ一覧');
+  if (!g) {
+    root.replaceChildren(back, h('p', { class: 'empty' }, `ID ${state.groupId} のグループはありません`));
     return;
   }
+  const files = filesOf(g.rootKeyId);
+  const actions = h('div', { class: 'actions' },
+    canBake(g) && h('a', { class: 'button primary', href: `#group/${g.rootKeyId}/bake` }, 'このグループに macaroon を作る'),
+    g.status !== 'deleted' && h('button', { type: 'button', onclick: () => editGroup(g) }, '名前・メモを編集'),
+    canDelete(g) && h('button', { type: 'button', class: 'danger', onclick: () => deleteGroup(g) },
+      g.status === 'active' ? 'グループを削除（中の macaroon をすべて無効化）' : g.status === 'missing' ? '削除済みにする' : 'グループを削除'),
+  );
+  root.replaceChildren(...[
+    back,
+    h('div', { class: 'card group-detail' },
+      h('div', { class: 'head' },
+        h('h2', { class: 'name' }, groupName(g)),
+        h('span', { class: 'id' }, `ID ${g.rootKeyId}`),
+        statusBadge(g), groupLabels(g)),
+      g.memo && h('p', { class: 'memo' }, g.memo),
+      statusNotice(g),
+      canBake(g) && h('p', { class: 'hint' },
+        'このグループの macaroon は 1 個ずつは止められません。別々に止めたい相手には、別のグループを作ってください。'),
+      canBake(g) && state.save.enabled && h('p', { class: 'hint' },
+        'LND のフォルダに置くときの場所: ', h('span', { class: 'mono' }, `${state.save.dir}/macaroon-id-${g.rootKeyId}/`),
+        '（グループを削除すると、ここにあるこの ID の macaroon も消します）'),
+      actions),
+    files.length > 0 && h('h2', { class: 'section' }, `LND のフォルダにあるファイル（${files.length}）`),
+    files.length > 0 && h('div', { class: 'card' },
+      h('ul', { class: 'plain' }, files.map((f) => h('li', {},
+        h('button', { class: 'link file-link', type: 'button', onclick: () => showFileDetail(f) }, f.name),
+        h('span', { class: 'hint' }, f.path))))),
+    h('h2', { class: 'section' }, `このグループの macaroon（${g.bakes.length}）`),
+    g.bakes.length > 0 && h('p', { class: 'hint' }, 'macaroon の本体は保存していません（作った直後に一度だけ表示）。ここにあるのは記録だけです。'),
+    g.bakes.length === 0 && h('p', { class: 'empty' },
+      g.isDefault ? 'このアプリでは作りません'
+        : g.status === 'active' ? 'このアプリで作った記録はありません。lncli などで作られたグループで、中にいくつ macaroon があるかは LND も覚えていません'
+          : 'まだありません'),
+    ...g.bakes.map((b) => bakeCard(g, b)),
+  ].filter(Boolean));
+}
+
+function bakeCard(g, b) {
+  const risk = riskText(b.permissions);
+  return h('div', { class: 'card bake-card' },
+    h('div', { class: 'head' },
+      h('span', { class: 'name' }, b.note || '（名前なし）'),
+      h('span', { class: 'muted' }, fmtDate(b.created_at)),
+      risk && h('span', { class: `badge ${risk[0]}`, title: risk[1] }, risk[0] === 'danger' ? '強い権限' : '注意')),
+    h('div', {}, permBadges(b.permissions), caveatBadges(b.caveats)),
+    h('p', { class: 'hint' }, '署名の先頭 ', h('span', { class: 'mono', title: '確かめるタブで照合に使います' }, b.fingerprint)),
+    b.saved_path && h('p', { class: 'hint' }, '置いた場所 ', h('span', { class: 'mono' }, b.saved_path)),
+    canBake(g) && h('div', { class: 'actions' },
+      h('button', { type: 'button', onclick: () => startBake(g.rootKeyId, { perms: b.permissions }) }, 'この権限をもとに作る')),
+  );
+}
+
+async function editGroup(g) {
+  const name = prompt(`${groupLabel(g)} の名前`, g.name);
+  if (name === null) return;
+  const memo = prompt(`${groupLabel(g)} のメモ`, g.memo);
+  if (memo === null) return;
   try {
-    await api('DELETE', `/api/ids/${encodeURIComponent(item.rootKeyId)}`);
+    await api('PATCH', `/api/ids/${encodeURIComponent(g.rootKeyId)}`, { name, memo });
     await loadState();
   } catch (e) {
     $('#global-error').textContent = e.message;
   }
 }
 
-// ---------- 作る ----------
+/** グループを削除する。消したら true */
+async function deleteGroup(g) {
+  const dirNote = state.save.enabled ? `\n\nLND のフォルダの macaroon-id-${g.rootKeyId}/ にある、この ID の macaroon ファイルも消します。` : '';
+  if (g.status === 'active') {
+    const count = g.bakes.length ? `このアプリで作った ${g.bakes.length} 個を含め、` : '';
+    const typed = prompt(`${groupLabel(g)} を LND から削除します。\n\n${count}このグループの macaroon はすべて、すぐに使えなくなります。元に戻せません。${dirNote}\n\n確認のため ID の番号（${g.rootKeyId}）を入力してください。`);
+    if (typed === null) return false;
+    if (typed.trim() !== g.rootKeyId) {
+      alert('番号が一致しないため、削除しませんでした');
+      return false;
+    }
+  } else if (g.status === 'missing') {
+    if (!confirm(`${groupLabel(g)} は LND にもうありません。削除済みにしますか？（記録は残ります）${dirNote}`)) return false;
+  } else if (!confirm(`空のグループ ${groupLabel(g)} を消しますか？`)) {
+    return false;
+  }
+  try {
+    const r = await api('DELETE', `/api/ids/${encodeURIComponent(g.rootKeyId)}`);
+    await loadState();
+    loadFiles();
+    const c = r.cleanup;
+    if (c?.error) {
+      alert(`グループは削除しましたが、macaroon-id-${g.rootKeyId}/ を片付けられませんでした: ${c.error}`);
+    } else if (c?.dir && (c.removed.length || c.kept.length)) {
+      const lines = [
+        c.removed.length && `消したファイル: ${c.removed.join('、')}`,
+        c.kept.length && `残したもの:\n${c.kept.map((k) => `・${k.name}（${k.reason}）`).join('\n')}`,
+        c.dirRemoved ? 'ディレクトリも消しました。' : `${c.dir} は残っています。`,
+      ].filter(Boolean);
+      alert(`${groupLabel(g)} を削除しました。\n\n${lines.join('\n\n')}`);
+    }
+    return true;
+  } catch (e) {
+    $('#global-error').textContent = e.message;
+    return false;
+  }
+}
+
+// ---------- グループに macaroon を作る ----------
 async function loadPermissions() {
   try {
     const { methods } = await api('GET', '/api/permissions');
@@ -290,17 +476,55 @@ async function loadPermissions() {
   }
 }
 
-function renderIdSelect() {
-  const sel = $('#create-form select[name=rootKeyId]');
-  const cur = sel.value;
-  sel.replaceChildren(
-    ...state.ids
-      .filter((i) => i.inLnd && !i.deletedAt && !i.isDefault)
-      .map((i) => h('option', { value: i.rootKeyId }, `ID ${i.rootKeyId}　${i.name || '（名前なし）'}`)),
-  );
-  if (cur) sel.value = cur;
-  const radio = $('#create-form input[name=idmode][value=existing]');
-  radio.disabled = sel.options.length === 0;
+/** 作る画面を開く。perms: 最初に選んでおく権限 */
+function startBake(id, draft = {}) {
+  state.draft = { id: String(id), ...draft };
+  go(`#group/${id}/bake`);
+}
+
+function openBake(id) {
+  const draft = state.draft?.id === id ? state.draft : { id };
+  state.draft = null;
+  state.bakeId = id;
+  $('#bake-error').textContent = '';
+  setPerms(draft.perms ?? []);
+  const removed = pruneRemoved();
+  showRemovedNotice(removed);
+  renderBakeHead();
+}
+
+function renderBakeHead() {
+  const g = findGroup(state.bakeId);
+  const head = $('#bake-head');
+  const form = $('#bake-form');
+  if (!canBake(g)) {
+    form.hidden = true;
+    head.replaceChildren(
+      h('a', { href: g ? `#group/${g.rootKeyId}` : '#groups', class: 'back' }, '← 戻る'),
+      h('p', { class: 'empty' }, g ? `${groupLabel(g)} には macaroon を作れません` : `ID ${state.bakeId} のグループはありません`));
+    return;
+  }
+  // 作った直後（結果を表示中）はフォームと案内を隠す
+  const showingResult = !$('#bake-result').hidden;
+  form.hidden = showingResult;
+  head.replaceChildren(...[
+    h('a', { href: `#group/${g.rootKeyId}`, class: 'back' }, `← ${groupName(g)}`),
+    h('h2', { class: 'page-title' }, `${groupLabel(g)} に macaroon を作る`),
+    !showingResult && h('p', { class: 'hint' },
+      g.status === 'unused'
+        ? 'このグループで最初の macaroon です。作ると LND にこのグループができます。'
+        : 'macaroon は作ったあと変えられません。権限を足すときは、ここで作り直します。前に作ったものも有効のままです。'),
+    !showingResult && g.bakes.length > 0 && h('div', { class: 'copy-row' },
+      h('button', { type: 'button', onclick: () => { setPerms(g.bakes[0].permissions); showRemovedNotice(pruneRemoved()); } }, '前回と同じ権限を読み込む')),
+  ].filter(Boolean));
+}
+
+function setPerms(perms) {
+  state.selected = new Set(perms.filter((p) => p.entity !== 'uri').map((p) => `${p.entity}:${p.action}`));
+  state.uris = new Set(perms.filter((p) => p.entity === 'uri').map((p) => p.action));
+  renderPermGrid();
+  renderUriList();
+  updateSummary();
 }
 
 function renderPermGrid() {
@@ -406,45 +630,6 @@ function applyPreset(kind) {
   updateSummary();
 }
 
-function setIdMode(mode, id) {
-  const form = $('#create-form');
-  form.querySelector(`input[name=idmode][value=${mode}]`).checked = true;
-  const sel = form.querySelector('select[name=rootKeyId]');
-  sel.disabled = mode !== 'existing';
-  sel.hidden = mode !== 'existing';
-  if (id) sel.value = id;
-  updateIdHint();
-}
-
-function updateIdHint() {
-  const form = $('#create-form');
-  const existing = form.querySelector('input[name=idmode]:checked').value === 'existing';
-  const nameInput = form.querySelector('input[name=keyName]');
-  if (existing) {
-    const item = state.ids.find((i) => i.rootKeyId === form.querySelector('select[name=rootKeyId]').value);
-    nameInput.placeholder = item?.name ? `変更しない場合は空欄（今: ${item.name}）` : '例: スマホのウォレット';
-    $('#id-hint').textContent =
-      'macaroon は作ったあと変更できないため、「権限を足す」は同じ ID で新しい macaroon を作り直す形になります。前に作った macaroon も有効のままです。古いものを確実に止めたいときは、新しい ID で作ってから古い ID を削除してください。';
-  } else {
-    nameInput.placeholder = '例: スマホのウォレット';
-    $('#id-hint').textContent = '新しい ID で作ると、あとでその ID を削除するだけで、この macaroon をまとめて無効にできます。';
-  }
-}
-
-function startCreate(rootKeyId, perms) {
-  switchTab('create');
-  $('#create-result').hidden = true;
-  $('#create-error').textContent = '';
-  state.selected = new Set(perms.filter((p) => p.entity !== 'uri').map((p) => `${p.entity}:${p.action}`));
-  state.uris = new Set(perms.filter((p) => p.entity === 'uri').map((p) => p.action));
-  showRemovedNotice(pruneRemoved());
-  if (rootKeyId) setIdMode('existing', rootKeyId);
-  else setIdMode('new');
-  renderPermGrid();
-  renderUriList();
-  updateSummary();
-}
-
 function expiryValue(form) {
   const v = form.expiry.value;
   if (!v) return null;
@@ -455,35 +640,31 @@ function expiryValue(form) {
   return new Date(Date.now() + Number(v) * 86400 * 1000).toISOString();
 }
 
-async function submitCreate(ev) {
+async function submitBake(ev) {
   ev.preventDefault();
   const form = ev.target;
-  $('#create-error').textContent = '';
+  $('#bake-error').textContent = '';
   const btn = form.querySelector('button[type=submit]');
   try {
     const perms = selectedPerms();
     if (!perms.length) throw new Error('権限を1つ以上選んでください');
     const risk = riskText(perms);
     if (risk?.[0] === 'danger' && !confirm(`${risk[1]}。\nこの権限で作りますか？`)) return;
-    const existing = form.idmode.value === 'existing';
     btn.disabled = true;
     const r = await api('POST', '/api/bake', {
-      rootKeyId: existing ? form.rootKeyId.value : 'new',
-      name: form.keyName.value,
-      memo: form.memo.value,
+      rootKeyId: state.bakeId,
       note: form.note.value,
       permissions: perms,
       expiresAt: expiryValue(form),
       ipAddress: form.ipAddress.value,
       ipRange: form.ipRange.value,
     });
-    showCreateResult(r, form.keyName.value);
-    form.keyName.value = '';
-    form.memo.value = '';
+    const name = form.note.value.trim();
     form.note.value = '';
     await loadState();
+    showBakeResult(r, name);
   } catch (e) {
-    $('#create-error').textContent = e.message;
+    $('#bake-error').textContent = e.message;
   } finally {
     btn.disabled = false;
   }
@@ -519,11 +700,62 @@ function downloadButton(hex, filename) {
   } }, 'ファイルで保存');
 }
 
-function showCreateResult(r, name) {
-  const box = $('#create-result');
-  const safe = (name || `id${r.rootKeyId}`).replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 40);
+function clearBakeResult() {
+  const box = $('#bake-result');
+  box.hidden = true;
+  box.replaceChildren();
+  $('#bake-form').hidden = false;
+}
+
+/** LND のフォルダの macaroon-id-<ID>/ に置く欄 */
+function saveToDirBox(r, name) {
+  const box = h('div', { class: 'save-box' });
+  if (!state.save.enabled) {
+    box.append(h('p', { class: 'hint' }, `LND のフォルダには置けません（${state.save.reason}）`));
+    return box;
+  }
+  const dir = `${state.save.dir}/macaroon-id-${r.rootKeyId}/`;
+  const input = h('input', { value: `${cleanName(name) || stamp()}.macaroon`, spellcheck: 'false', 'aria-label': 'ファイル名' });
+  const msg = h('div');
+  const send = async (overwrite) => {
+    msg.replaceChildren();
+    try {
+      const res = await api('POST', '/api/save', { rootKeyId: r.rootKeyId, fileName: input.value, macaroon: r.macaroonHex, overwrite });
+      msg.append(h('div', { class: 'notice ok' }, `${res.replaced ? '置き換えました' : '置きました'}: `, h('span', { class: 'mono' }, res.path), '（600）'));
+      loadState();
+      loadFiles();
+    } catch (e) {
+      if (!overwrite && /もうあります/.test(e.message)) {
+        if (confirm(`${dir}${input.value} はもうあります。置き換えますか？\n（前のファイルの macaroon も、同じグループなので有効のままです）`)) send(true);
+        return;
+      }
+      msg.append(h('p', { class: 'error' }, e.message));
+    }
+  };
+  box.append(
+    h('label', {}, 'LND のフォルダに置く', h('span', { class: 'hint save-dir' }, dir)),
+    h('div', { class: 'save-row' }, input, h('button', { type: 'button', onclick: () => send(false) }, '置く')),
+    msg);
+  return box;
+}
+
+const cleanName = (t) => String(t ?? '').replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+function stamp() {
+  const d = new Date();
+  const p2 = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+}
+
+/** 保存するファイル名: グループ名_macaroon の名前（名前がなければ作成日時） */
+function macaroonFileName(g, rootKeyId, name) {
+  return `${cleanName(g?.name) || `id${rootKeyId}`}_${cleanName(name) || stamp()}.macaroon`;
+}
+
+function showBakeResult(r, name = '') {
+  const g = findGroup(r.rootKeyId);
+  const box = $('#bake-result');
   box.replaceChildren(
-    h('h2', {}, `ID ${r.rootKeyId} で作りました`),
+    h('h2', {}, `${g ? groupLabel(g) : `ID ${r.rootKeyId}`} に${name ? `「${name}」を` : ''}作りました`),
     h('div', { class: 'notice warn' }, 'macaroon 本体はこのアプリに保存していません。この画面を離れると二度と表示できないので、今コピーするかファイルで保存してください。'),
     h('dl', {},
       h('dt', {}, '権限'), h('dd', {}, permBadges(r.permissions)),
@@ -534,11 +766,14 @@ function showCreateResult(r, name) {
     h('div', { class: 'copy-row' },
       copyButton(r.macaroonHex, 'hex をコピー'),
       copyButton(r.macaroonBase64, 'base64 をコピー'),
-      downloadButton(r.macaroonHex, `${safe}.macaroon`),
-      h('button', { type: 'button', onclick: () => { box.hidden = true; box.replaceChildren(); } }, '閉じる（消去）')),
+      downloadButton(r.macaroonHex, macaroonFileName(g, r.rootKeyId, name))),
+    saveToDirBox(r, name),
+    h('div', { class: 'copy-row' },
+      h('a', { class: 'button', href: `#group/${r.rootKeyId}` }, 'グループに戻る（表示を消去）')),
   );
   box.hidden = false;
-  box.scrollIntoView({ behavior: 'smooth' });
+  renderBakeHead();
+  window.scrollTo(0, 0);
 }
 
 // ---------- LND のファイル ----------
@@ -547,14 +782,15 @@ function filesOf(id) {
 }
 
 async function loadFiles() {
-  const root = $('#tab-files');
+  const root = $('#view-files');
   if (!state.files) root.replaceChildren(h('p', { class: 'empty' }, '読み込み中…'));
   try {
     const r = await api('GET', '/api/files');
     state.files = r.files;
     state.filesDir = r.dir;
     renderFiles();
-    renderList();
+    if (state.view === 'groups') renderList();
+    else if (state.view === 'group') renderGroup();
   } catch (e) {
     root.replaceChildren(h('p', { class: 'error' }, e.message));
   }
@@ -572,6 +808,14 @@ function fileWarnings(f) {
   return w;
 }
 
+/** macaroon が入っているグループへのリンク */
+function groupLink(rootKeyId) {
+  const g = findGroup(rootKeyId);
+  return g
+    ? h('a', { href: `#group/${rootKeyId}` }, `グループ${groupLabel(g)}`)
+    : h('span', {}, `ID ${rootKeyId}（このノードにないグループ）`);
+}
+
 function fileCard(f) {
   const perms = f.ops ? opsToPerms(f.ops) : [];
   const risk = riskText(perms);
@@ -583,8 +827,7 @@ function fileCard(f) {
       : v === false
         ? h('span', { class: 'badge danger' }, '使えません')
         : h('span', { class: 'badge warn' }, '確認できず');
-  const idName = f.rootKeyId === undefined ? '' : f.record?.name || (f.rootKeyId === '0' ? '標準' : '名前なし');
-  return h('div', { class: 'card id-card' },
+  return h('div', { class: 'card group-card' },
     h('div', { class: 'head' },
       h('span', { class: 'name' }, f.name),
       status,
@@ -596,7 +839,7 @@ function fileCard(f) {
     f.error
       ? h('p', { class: 'error' }, f.error)
       : h('div', {},
-          h('div', {}, h('span', { class: 'muted' }, `ID ${f.rootKeyId}（${idName}） ・ `), h('span', { class: 'muted' }, `呼べる RPC ${f.methods.length} / ${f.methodCount}`)),
+          h('div', {}, groupLink(f.rootKeyId), h('span', { class: 'muted' }, ` ・ 呼べる RPC ${f.methods.length} / ${f.methodCount}`)),
           h('div', {}, permBadges(perms), caveatBadges(f.caveats)),
           v === false && h('p', { class: 'hint' }, f.check.reason),
           f.sameAs?.length > 0 && h('p', { class: 'hint' }, `中身が同じファイル: ${f.sameAs.join('、')}`),
@@ -605,7 +848,7 @@ function fileCard(f) {
 }
 
 function renderFiles() {
-  const root = $('#tab-files');
+  const root = $('#view-files');
   const files = state.files || [];
   const warnCount = files.filter((f) => f.otherReadable).length;
   root.replaceChildren(...[
@@ -619,7 +862,7 @@ function renderFiles() {
 }
 
 function showFileDetail(f) {
-  switchTab('inspect');
+  go('#inspect');
   $('#inspect-error').textContent = '';
   $('#inspect-form').macaroon.value = '';
   if (f.error) {
@@ -649,36 +892,33 @@ function renderInspect(r, file = null) {
   const perms = opsToPerms(r.ops);
   const risk = riskText(perms);
   const v = r.check.valid;
+  const g = findGroup(r.rootKeyId);
   const validity = v === true
     ? h('div', { class: 'notice ok' }, 'LND で使える macaroon です')
     : v === false
       ? h('div', { class: 'notice danger' }, `使えません: ${r.check.reason}`)
       : h('div', { class: 'notice warn' }, r.check.reason || '有効かどうか確かめられませんでした');
-  const name = r.record?.name || (r.rootKeyId === '0' ? 'LND 標準' : '（名前なし）');
   box.replaceChildren(...[
-    h('h2', {}, file ? `${file.name}（ID ${r.rootKeyId}　${name}）` : `ID ${r.rootKeyId}　${name}`),
+    h('h2', {}, file ? file.name : 'macaroon の中身'),
     file && h('p', { class: 'hint' }, h('span', { class: 'mono' }, file.path), ` ・ 権限 ${file.mode} ・ 更新 ${fmtDate(file.mtime)}`, file.standard && ` ・ ${file.standard}`),
     ...(file ? fileWarnings(file).map(([k, t]) => h('div', { class: `notice ${k}` }, t)) : []),
     validity,
     risk && h('div', { class: `notice ${risk[0]}` }, risk[1]),
     h('dl', {},
+      h('dt', {}, 'グループ'), h('dd', {}, groupLink(r.rootKeyId), g && ' ', g && statusBadge(g)),
+      g?.memo && h('dt', {}, 'グループのメモ'), g?.memo && h('dd', {}, g.memo),
       h('dt', {}, '権限'), h('dd', {}, perms.length ? permBadges(perms) : 'なし'),
       h('dt', {}, '制限'), h('dd', {}, r.caveats.length ? caveatBadges(r.caveats) : 'なし'),
-      h('dt', {}, 'ID のメモ'), h('dd', {}, r.record?.memo || '—'),
-      h('dt', {}, '作成記録'), h('dd', {}, r.bake ? `${fmtDate(r.bake.created_at)} にこのアプリで作成${r.bake.note ? `（${r.bake.note}）` : ''}` : 'このアプリの記録にはありません'),
+      r.bake?.note && h('dt', {}, '名前'), r.bake?.note && h('dd', {}, r.bake.note),
+      h('dt', {}, '作成記録'), h('dd', {}, r.bake ? `${fmtDate(r.bake.created_at)} にこのアプリで作成` : 'このアプリの記録にはありません'),
       h('dt', {}, '署名の先頭'), h('dd', {}, h('span', { class: 'mono' }, r.fingerprint)),
     ),
     h('details', {},
       h('summary', {}, `呼べる RPC（${r.methods.length} / ${r.methodCount}）`),
       h('ul', { class: 'methods' }, r.methods.map((m) => h('li', {}, m)))),
     h('div', { class: 'actions copy-row' },
-      r.inLnd && r.rootKeyId !== '0' &&
-        h('button', { type: 'button', onclick: () => startCreate(r.rootKeyId, perms) }, 'この権限に足して作り直す'),
-      r.inLnd && r.rootKeyId !== '0' && r.rootKeyId !== state.ownId &&
-        h('button', { type: 'button', class: 'danger', onclick: () => {
-          const item = state.ids.find((i) => i.rootKeyId === r.rootKeyId) ?? { rootKeyId: r.rootKeyId, name: '' };
-          deleteId(item).then(() => switchTab('list'));
-        } }, 'この ID を削除（無効化）')),
+      canBake(g) && h('button', { type: 'button', onclick: () => startBake(g.rootKeyId, { perms }) }, 'この権限をもとに、同じグループで作る'),
+      g && h('a', { class: 'button', href: `#group/${g.rootKeyId}` }, 'グループを開く')),
   ].filter(Boolean));
   box.hidden = false;
 }
@@ -699,28 +939,17 @@ $('#logout').addEventListener('click', async () => {
   await api('POST', '/api/logout').catch(() => {});
   showLogin();
 });
-for (const b of document.querySelectorAll('.tabs button')) {
-  b.addEventListener('click', () => {
-    if (b.dataset.tab === 'create') startCreate(null, []);
-    else switchTab(b.dataset.tab);
-    if (b.dataset.tab === 'files') loadFiles();
-  });
-}
+window.addEventListener('hashchange', () => {
+  if (!$('#app').hidden) route();
+});
 for (const [label, kind] of PRESETS) {
   $('#presets').append(h('button', { type: 'button', onclick: () => applyPreset(kind) }, label));
 }
-for (const r of document.querySelectorAll('#create-form input[name=idmode]')) {
-  r.addEventListener('change', () => setIdMode(r.value));
-}
-$('#create-form select[name=rootKeyId]').addEventListener('change', () => {
-  const item = state.ids.find((i) => i.rootKeyId === $('#create-form select[name=rootKeyId]').value);
-  if (item) startCreate(item.rootKeyId, item.bakes[0]?.permissions ?? []);
-});
-$('#create-form select[name=expiry]').addEventListener('change', (ev) => {
+$('#bake-form select[name=expiry]').addEventListener('change', (ev) => {
   $('#expiry-custom-label').hidden = ev.target.value !== 'custom';
 });
 $('#uri-search').addEventListener('input', renderUriList);
-$('#create-form').addEventListener('submit', submitCreate);
+$('#bake-form').addEventListener('submit', submitBake);
 $('#inspect-form').addEventListener('submit', submitInspect);
 $('#inspect-file').addEventListener('change', async (ev) => {
   const f = ev.target.files[0];
