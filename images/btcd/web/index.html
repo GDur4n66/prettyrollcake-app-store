@@ -10,7 +10,10 @@
 <body>
 <header>
   <div class="brand"><img src="icon.svg" alt=""><span>btcd</span><small id="version"></small></div>
-  <div id="state" class="state">接続中…</div>
+  <div class="header-right">
+    <nav><a href="./" class="active">状態</a><a href="peers.html">ピア</a></nav>
+    <div id="state" class="state">接続中…</div>
+  </div>
 </header>
 
 <main>
@@ -25,7 +28,7 @@
 
   <section class="grid">
     <div class="card stat"><div class="label">ネットワーク</div><b id="chain">—</b></div>
-    <div class="card stat"><div class="label">ピア</div><b id="peers">—</b><small id="peersSub"></small></div>
+    <a class="card stat" href="peers.html"><div class="label">ピア →</div><b id="peers">—</b><small id="peersSub"></small></a>
     <div class="card stat"><div class="label">データ容量</div><b id="size">—</b></div>
     <div class="card stat"><div class="label">稼働時間</div><b id="uptime">—</b></div>
   </section>

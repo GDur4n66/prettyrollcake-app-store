@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>btcd のピア</title>
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="wide">
+<header>
+  <div class="brand"><img src="icon.svg" alt=""><span>btcd</span></div>
+  <nav><a href="./">状態</a><a href="peers.html" class="active">ピア</a></nav>
+</header>
+
+<main>
+  <div id="notice" class="notice" hidden></div>
+
+  <div class="title-row">
+    <h1><span id="count">—</span> ピア</h1>
+    <span id="updated" class="meta"></span>
+  </div>
+
+  <section class="summary">
+    <div class="card"><div class="label">バージョン（上位）</div><table class="mini" id="topVersions"></table></div>
+    <div class="card"><div class="label">サービス</div><table class="mini" id="topServices"></table></div>
+    <div class="card"><div class="label">ネットワーク種別</div><table class="mini" id="netTypes"></table></div>
+    <div class="card"><div class="label">接続の種類</div><table class="mini" id="connTypes"></table></div>
+  </section>
+
+  <section class="card">
+    <div class="table-tools">
+      <div class="label">一覧</div>
+      <input id="search" type="search" placeholder="検索（アドレス・バージョン・サービス）">
+    </div>
+    <div class="table-wrap">
+      <table class="peers">
+        <thead>
+          <tr>
+            <th data-sort="id">#</th>
+            <th data-sort="subver">バージョン</th>
+            <th data-sort="addr">アドレス</th>
+            <th data-sort="services">サービス</th>
+            <th data-sort="kind">種類</th>
+            <th data-sort="height" class="num">高さ</th>
+            <th data-sort="pingMs" class="num">ping</th>
+            <th data-sort="traffic" class="num">送信 / 受信</th>
+            <th data-sort="lastRecvAgo" class="num">最終 送 / 受</th>
+            <th data-sort="connectedFor" class="num">接続時間</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="hint small">btcd には Bitcoin Core の block-relay-only のような区分はありません。「取引なし」は相手が取引の中継を断っている接続、「同期元」は今ブロックを受け取っている相手です。</p>
+  </section>
+</main>
+<script src="peers.js"></script>
+</body>
+</html>

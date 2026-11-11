@@ -15,6 +15,7 @@ Standard library only.
 """
 
 import base64
+import ipaddress
 import json
 import os
 import signal
@@ -254,7 +255,21 @@ STATIC = {
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/icon.svg": ("icon.svg", "image/svg+xml"),
+    "/peers.html": ("peers.html", "text/html; charset=utf-8"),
+    "/peers.js": ("peers.js", "text/javascript; charset=utf-8"),
 }
+
+# Service bits a peer announces: (bit, name, short label)
+SERVICE_FLAGS = [
+    (1, "NETWORK", "NET"),
+    (2, "GETUTXO", "UTXO"),
+    (4, "BLOOM", "BLOOM"),
+    (8, "WITNESS", "WIT"),
+    (16, "XTHIN", "XTHIN"),
+    (64, "COMPACT_FILTERS", "CF"),
+    (1024, "NETWORK_LIMITED", "NET_LIM"),
+    (2048, "P2P_V2", "P2P_V2"),
+]
 
 _size_cache = {"at": 0.0, "bytes": None, "busy": False}
 
@@ -277,6 +292,66 @@ def data_size():
 
         threading.Thread(target=work, daemon=True).start()
     return _size_cache["bytes"]
+
+
+def decode_services(raw):
+    # btcd prints the service bits as a zero-padded decimal number ("00001033")
+    try:
+        value = int(str(raw), 10)
+    except ValueError:
+        return 0, []
+    flags = [{"name": name, "short": short} for bit, name, short in SERVICE_FLAGS if value & bit]
+    unknown = value & ~sum(bit for bit, _, _ in SERVICE_FLAGS)
+    for n in range(64):
+        if unknown & (1 << n):
+            flags.append({"name": f"BIT{n}", "short": f"BIT{n}"})
+    return value, flags
+
+
+def network_type(addr):
+    host = addr.rsplit(":", 1)[0] if ":" in addr else addr
+    host = host.strip("[]")
+    if host.endswith(".onion"):
+        return "onion"
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return "other"
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    if not ip.is_global:
+        return "not_publicly_routable"
+    return "ipv4" if ip.version == 4 else "ipv6"
+
+
+def peers():
+    now = int(time.time())
+    out = []
+    for p in rpc("getpeerinfo") or []:
+        services, flags = decode_services(p.get("services", "0"))
+        out.append({
+            "id": p.get("id"),
+            "addr": p.get("addr", ""),
+            "subver": p.get("subver", ""),
+            "version": p.get("version"),
+            "services": services,
+            "flags": flags,
+            "network": network_type(p.get("addr", "")),
+            "inbound": bool(p.get("inbound")),
+            "relayTxes": bool(p.get("relaytxes")),
+            "syncNode": bool(p.get("syncnode")),
+            "v2": bool(p.get("v2_connection")),
+            "startingHeight": p.get("startingheight"),
+            "currentHeight": p.get("currentheight"),
+            "pingMs": round(p["pingtime"] / 1000, 1) if p.get("pingtime") else None,
+            "bytesSent": p.get("bytessent", 0),
+            "bytesRecv": p.get("bytesrecv", 0),
+            "lastSendAgo": now - p["lastsend"] if p.get("lastsend") else None,
+            "lastRecvAgo": now - p["lastrecv"] if p.get("lastrecv") else None,
+            "connectedFor": now - p["conntime"] if p.get("conntime") else None,
+            "banScore": p.get("banscore", 0),
+        })
+    return {"peers": out, "now": now}
 
 
 def status():
@@ -346,6 +421,11 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/status":
             return self.send_json(200, status())
+        if path == "/api/peers":
+            try:
+                return self.send_json(200, peers())
+            except RpcError as e:
+                return self.send_json(502, {"error": str(e)})
         if path == "/api/rpc.cert":
             try:
                 with open(CERT_FILE, "rb") as f:
