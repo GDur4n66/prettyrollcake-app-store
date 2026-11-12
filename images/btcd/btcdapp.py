@@ -217,7 +217,10 @@ RPC_URL = os.environ.get("BTCD_RPC_URL", f"https://btcd:{RPC_PORT}")
 
 
 class RpcError(Exception):
-    pass
+    def __init__(self, message, busy=False):
+        super().__init__(message)
+        # True when btcd accepted the connection but did not answer in time
+        self.busy = busy
 
 
 def rpc(method, params=None, timeout=10):
@@ -241,6 +244,8 @@ def rpc(method, params=None, timeout=10):
             raise RpcError(f"RPC エラー（HTTP {e.code}）") from None
     except (urllib.error.URLError, OSError, ValueError) as e:
         reason = getattr(e, "reason", e)
+        if isinstance(reason, TimeoutError) or "timed out" in str(reason):
+            raise RpcError("btcd の応答が遅れています（ブロックの処理中）", busy=True) from None
         raise RpcError(f"btcd に接続できません（{reason}）") from None
     if data.get("error"):
         raise RpcError(data["error"].get("message", "RPC エラー"))
@@ -354,6 +359,10 @@ def peers():
     return {"peers": out, "now": now}
 
 
+CHAIN_NAMES = {"mainnet": "mainnet", "testnet": "testnet3", "testnet4": "testnet4", "signet": "signet"}
+_last_node = {"node": None, "at": 0.0}
+
+
 def status():
     saved = load_settings()
     applied = read_json(APPLIED_FILE) or {}
@@ -376,29 +385,37 @@ def status():
         },
         "dataBytes": data_size(),
     }
+    # Only RPCs that do not wait for the chain lock. getblockchaininfo does
+    # (soft fork states), so it stalls while btcd processes a block, which
+    # can take tens of seconds during the initial sync.
     try:
-        info = rpc("getinfo")
-        chain = rpc("getblockchaininfo")
-        header = rpc("getblockheader", [chain["bestblockhash"], True])
-        peers = rpc("getpeerinfo") or []
-        out["node"] = {
+        info = rpc("getinfo", timeout=8)
+        best = rpc("getbestblock", timeout=8)
+        header = rpc("getblockheader", [best["hash"], True], timeout=8)
+        peers = rpc("getpeerinfo", timeout=8) or []
+        network = applied.get("network", saved["network"])
+        node = {
             "version": info.get("version"),
             "protocolVersion": info.get("protocolversion"),
-            "chain": chain.get("chain"),
-            "blocks": chain.get("blocks"),
-            "headers": chain.get("headers"),
-            "bestBlockHash": chain.get("bestblockhash"),
+            "chain": CHAIN_NAMES.get(network, network),
+            "blocks": best.get("height"),
+            "bestBlockHash": best.get("hash"),
             "bestBlockTime": header.get("time"),
-            "difficulty": chain.get("difficulty"),
+            "difficulty": info.get("difficulty"),
             "peers": len(peers),
             "inbound": sum(1 for p in peers if p.get("inbound")),
             "onionPeers": sum(1 for p in peers if ".onion" in str(p.get("addr", ""))),
             "proxy": info.get("proxy") or "",
-            "uptime": rpc("uptime"),
+            "uptime": rpc("uptime", timeout=8),
         }
+        _last_node.update(node=node, at=time.time())
+        out["node"] = node
     except RpcError as e:
-        out["node"] = None
         out["error"] = str(e)
+        out["busy"] = e.busy
+        # While btcd is busy, keep showing what we got last time
+        out["node"] = _last_node["node"] if e.busy else None
+        out["nodeAt"] = int(_last_node["at"]) if e.busy and _last_node["node"] else None
     return out
 
 

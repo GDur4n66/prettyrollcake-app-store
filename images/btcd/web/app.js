@@ -49,8 +49,13 @@ function render(s) {
   if (n) {
     const age = Date.now() / 1000 - n.bestBlockTime;
     const synced = age < 2 * 3600;
-    $("state").textContent = synced ? "同期済み" : "同期中";
-    $("state").className = `state ${synced ? "ok" : "busy"}`;
+    if (s.busy) {
+      $("state").textContent = "応答待ち";
+      $("state").className = "state busy";
+    } else {
+      $("state").textContent = synced ? "同期済み" : "同期中";
+      $("state").className = `state ${synced ? "ok" : "busy"}`;
+    }
     // btcd reports 0.27.0 as 270000 (major*1000000 + minor*10000 + patch*100)
     const v = Number(n.version);
     $("version").textContent = `v${Math.floor(v / 1e6)}.${Math.floor(v / 1e4) % 100}.${Math.floor(v / 100) % 100}`;
@@ -73,7 +78,10 @@ function render(s) {
   }
   $("size").textContent = fmtBytes(s.dataBytes);
 
-  if (s.pendingRestart) {
+  if (s.busy) {
+    const when = s.nodeAt ? `（${new Date(s.nodeAt * 1000).toLocaleTimeString("ja-JP")} 時点の情報を表示中）` : "";
+    setNotice(`btcd がブロックの処理中で、応答が遅れています${when}。同期中はよくあることで、止まってはいません。`, "warn");
+  } else if (s.pendingRestart) {
     setNotice("保存した設定はまだ反映されていません。「保存して再起動」で反映されます。", "warn");
   } else if (!n && s.error) {
     setNotice(s.error, "");
