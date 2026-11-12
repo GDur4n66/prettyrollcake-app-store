@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-btcd
 category: bitcoin
 name: btcd
-version: "0.27.0-1"
+version: "0.27.0-2"
 tagline: A full Bitcoin node written in Go
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-btcd/icon.svg
 description: >-
@@ -25,7 +25,12 @@ description: >-
 
   Ports: P2P 48333, RPC 48334 (TLS). A Tor onion address is created for P2P.
 releaseNotes: >-
-  New peers page: every connected peer with its version, address, services,
+  The status page no longer shows "stopped" while btcd is busy processing
+  blocks during the initial sync. It now shows "waiting for btcd" with the
+  last known values.
+
+
+  0.27.0-1: New peers page: every connected peer with its version, address, services,
   connection type, height, ping and traffic, plus summaries of versions,
   service flags, network types and connection types. Sort by any column and
   search.
