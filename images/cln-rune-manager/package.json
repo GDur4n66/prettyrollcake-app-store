@@ -1,6 +1,6 @@
 {
   "name": "cln-rune-manager",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "description": "Core Lightning の rune を画面から作成・一覧・無効化し、名前とメモを付けて管理する Web アプリ",

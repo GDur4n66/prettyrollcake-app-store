@@ -207,15 +207,39 @@ function runeBlock(rune) {
     <p class="hint">使い方の例: <code>curl -k -X POST ${esc(url)}/v1/getinfo -H "Rune: ${esc(rune)}"</code></p>`;
 }
 
+/** クリップボードへ。navigator.clipboard は HTTPS か localhost でしか使えないので、
+ * Umbrel（http://umbrel.local:…）では execCommand に切り替える */
+async function copyText(text) {
+  try {
+    if (window.isSecureContext && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* 下の方法で試す */
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  document.body.append(ta);
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  ta.remove();
+  return ok;
+}
+
 function bindCopy(el) {
   for (const b of el.querySelectorAll('[data-copy]')) {
     b.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(b.dataset.copy);
-        b.textContent = 'コピーしました';
-      } catch {
-        b.textContent = 'コピーできません（選択してコピーしてください）';
-      }
+      const ok = await copyText(b.dataset.copy);
+      b.textContent = ok ? 'コピーしました' : 'コピーできません（文字を選んでコピーしてください）';
       setTimeout(() => (b.textContent = 'コピー'), 2000);
     });
   }

@@ -143,3 +143,4 @@ ul.restrictions li { margin: 2px 0; word-break: break-all; }
 .danger-text { color: var(--danger); font-weight: 700; }
 .toolbar { gap: 12px; align-items: center; flex-wrap: wrap; }
 .toolbar label.inline { margin: 0 auto 0 0; }
+.rune-text { user-select: all; -webkit-user-select: all; cursor: text; }
