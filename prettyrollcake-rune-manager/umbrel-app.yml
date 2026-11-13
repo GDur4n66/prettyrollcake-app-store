@@ -1,0 +1,57 @@
+manifestVersion: 1
+id: prettyrollcake-rune-manager
+category: bitcoin
+name: Rune Manager
+version: "0.2.0"
+tagline: Create, list and revoke Core Lightning runes
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-rune-manager/icon.svg
+description: >-
+  Manage the runes of your Core Lightning node from a web page, instead of
+  lightning-cli.
+
+
+  - See every rune stored by Core Lightning, newest first, with what it can
+  do in plain words, when it was last used, and a name and memo you give it.
+  The rune itself is shown only when you ask for it.
+
+  - Create runes from presets (receive, pay, balances, BOLT12 offers, wallet
+  apps) or by picking single commands from your node's command list. Add an
+  expiry date, a rate limit or a "once per" interval, or write your own
+  conditions (for example a maximum amount). Commands that move funds are
+  flagged before you create the rune.
+
+  - Revoke (blacklist) a rune by its ID, and undo it on Core Lightning
+  25.02 or later.
+
+  - Inspect any rune: which node it belongs to, whether it is revoked or
+  expired, and whether it may run a given command (checked with checkrune,
+  without running the command).
+
+
+  The app talks to Core Lightning through its local RPC socket, so it needs
+  no rune or certificate of its own. Because lightningd runs as root and
+  its socket is only open to root, this app's container runs as root too,
+  with every Linux capability dropped and the Core Lightning folder mounted
+  read-only.
+
+
+  The interface is in Japanese.
+
+
+  Log in with the password shown by Umbrel for this app. Anyone who can log
+  in can create runes with full access to your node, so treat this password
+  like an admin key.
+releaseNotes: ""
+developer: prettyrollcake
+website: https://github.com/GDur4n66/prettyrollcake-app-store
+dependencies:
+  - core-lightning
+repo: https://github.com/GDur4n66/prettyrollcake-app-store
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 33630
+gallery: []
+path: ""
+defaultUsername: ""
+deterministicPassword: true
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store

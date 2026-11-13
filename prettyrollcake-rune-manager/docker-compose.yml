@@ -1,0 +1,34 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: prettyrollcake-rune-manager_web_1
+      APP_PORT: 3630
+
+  web:
+    # Built from images/cln-rune-manager by .github/workflows/cln-rune-manager-image.yml
+    image: ghcr.io/gdur4n66/cln-rune-manager:0.2.0@sha256:531d56b03a99bd509d270d8e3f5e088f4c05f7f1dc30d50419055e512d4a20ea
+    # Runs as root on purpose: lightningd runs as root and creates
+    # lightning-rpc with mode 0600, so only uid 0 can connect to it.
+    # All capabilities are dropped: as the owner of the socket, uid 0 needs none.
+    user: "0:0"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: on-failure
+    init: true
+    stop_grace_period: 10s
+    volumes:
+      # Read-only, and only the network folder. The whole folder (not the
+      # socket file) is mounted because lightningd recreates the socket on
+      # every start.
+      - ${APP_CORE_LIGHTNING_DATA_DIR}/${APP_CORE_LIGHTNING_BITCOIN_NETWORK}:/cln:ro
+      - ${APP_DATA_DIR}/data:/data
+    environment:
+      # Talk JSON-RPC to lightningd directly: no rune and no TLS settings
+      CLN_RPC_SOCKET: "/cln/lightning-rpc"
+      # Only shown in the usage example next to a new rune
+      CLN_PUBLIC_REST_URL: "https://${DEVICE_DOMAIN_NAME}:${CORE_LIGHTNING_REST_PORT}"
+      ADMIN_PASSWORD: "${APP_PASSWORD}"

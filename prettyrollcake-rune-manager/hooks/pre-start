@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The web container runs as root without any capabilities (see
+# docker-compose.yml), so it cannot write to a folder owned by someone else.
+# Give data/ to root and keep it private: it holds the names and memos.
+APP_DIR="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
+DATA_DIR="${APP_DIR}/data"
+
+mkdir -p "${DATA_DIR}"
+if [[ "$(stat -c "%u:%g" "${DATA_DIR}")" != "0:0" ]]; then
+	chown -R 0:0 "${DATA_DIR}"
+fi
+chmod 700 "${DATA_DIR}"
