@@ -8,13 +8,17 @@ services:
 
   web:
     # Built from images/cln-rune-manager by .github/workflows/cln-rune-manager-image.yml
-    image: ghcr.io/gdur4n66/cln-rune-manager:0.2.0@sha256:531d56b03a99bd509d270d8e3f5e088f4c05f7f1dc30d50419055e512d4a20ea
+    image: ghcr.io/gdur4n66/cln-rune-manager:0.2.2@sha256:fdd58bf7872c259041812b131a6ace720fc74dbc99fc833ba9ea74982c3fc17e
     # Runs as root on purpose: lightningd runs as root and creates
     # lightning-rpc with mode 0600, so only uid 0 can connect to it.
-    # All capabilities are dropped: as the owner of the socket, uid 0 needs none.
+    # Every capability is dropped except DAC_OVERRIDE, which lets uid 0 reach
+    # the socket even when the owner of the folder was changed from root
+    # (for example a bitcoin/ folder chowned to 1000 with mode 0700).
     user: "0:0"
     cap_drop:
       - ALL
+    cap_add:
+      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
     restart: on-failure

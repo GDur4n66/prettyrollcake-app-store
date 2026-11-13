@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-rune-manager
 category: bitcoin
 name: Rune Manager
-version: "0.2.0"
+version: "0.2.2"
 tagline: Create, list and revoke Core Lightning runes
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-rune-manager/icon.svg
 description: >-
@@ -31,8 +31,9 @@ description: >-
   The app talks to Core Lightning through its local RPC socket, so it needs
   no rune or certificate of its own. Because lightningd runs as root and
   its socket is only open to root, this app's container runs as root too,
-  with every Linux capability dropped and the Core Lightning folder mounted
-  read-only.
+  with every Linux capability dropped except DAC_OVERRIDE (needed when the
+  owner of the Core Lightning folder is not root) and the Core Lightning
+  folder mounted read-only.
 
 
   The interface is in Japanese.
@@ -41,7 +42,10 @@ description: >-
   Log in with the password shown by Umbrel for this app. Anyone who can log
   in can create runes with full access to your node, so treat this password
   like an admin key.
-releaseNotes: ""
+releaseNotes: >-
+  Connects even when the owner of the Core Lightning folder was changed from
+  root. A permission error now shows the owner and mode of the folder and
+  socket. The login page no longer says the login expired on first open.
 developer: prettyrollcake
 website: https://github.com/GDur4n66/prettyrollcake-app-store
 dependencies:
