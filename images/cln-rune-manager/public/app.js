@@ -12,7 +12,9 @@ async function api(path, opts = {}) {
   });
   const json = await res.json().catch(() => ({}));
   if (res.status === 401 && path !== '/api/login') {
-    showLogin('ログインが切れました。もう一度ログインしてください');
+    // 開いた直後 はまだログインしていないだけ。ログインした後に切れたときだけ知らせる
+    showLogin(loggedIn ? 'ログインが切れました。もう一度ログインしてください' : '');
+    loggedIn = false;
     throw new Error('ログインしてください');
   }
   if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
@@ -20,6 +22,7 @@ async function api(path, opts = {}) {
 }
 
 let state = null;
+let loggedIn = false;
 let commands = [];
 const selected = new Set();
 let showBlacklisted = false;
@@ -43,6 +46,7 @@ $('#login-form').addEventListener('submit', async (e) => {
 });
 $('#logout').addEventListener('click', async () => {
   await api('/api/logout', { method: 'POST' }).catch(() => {});
+  loggedIn = false;
   showLogin();
 });
 
@@ -54,6 +58,7 @@ function showTab(name) {
 window.addEventListener('hashchange', () => showTab(location.hash.slice(1) || 'list'));
 
 async function start() {
+  loggedIn = true;
   $('#login').hidden = true;
   $('#app').hidden = false;
   $('#logout').hidden = false;

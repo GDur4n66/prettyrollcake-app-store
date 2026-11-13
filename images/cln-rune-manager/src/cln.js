@@ -3,7 +3,8 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { connect as tlsConnect } from 'node:tls';
 import { isIP, createConnection } from 'node:net';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 export class ClnError extends Error {
   constructor(message, status, code) {
@@ -11,6 +12,28 @@ export class ClnError extends Error {
     this.status = status;
     this.code = code; // CLN のエラーコード（1501 など）
   }
+}
+
+/** 権限エラーのときに、このプロセスから見えるソケットまわりの状態を説明する */
+export function describeSocketAccess(socketPath) {
+  const st = (p) => {
+    try {
+      const s = statSync(p);
+      return `${s.uid}:${s.gid} ${(s.mode & 0o7777).toString(8).padStart(4, '0')}`;
+    } catch (e) {
+      return e.code === 'EACCES' ? '見られない（フォルダに入れない）' : e.code === 'ENOENT' ? 'ない' : e.code || e.message;
+    }
+  };
+  let caps = '';
+  try {
+    const eff = readFileSync('/proc/self/status', 'utf8').match(/^CapEff:\s*([0-9a-f]+)/m)?.[1];
+    if (eff) caps = BigInt(`0x${eff}`) === 0n ? '特権なし' : (BigInt(`0x${eff}`) >> 1n) & 1n ? '特権あり（DAC_OVERRIDE を含む）' : `特権あり（${eff}）`;
+  } catch {
+    /* /proc がない */
+  }
+  const uid = process.getuid?.() ?? '?';
+  const gid = process.getgid?.() ?? '?';
+  return `フォルダ ${dirname(socketPath)}: ${st(dirname(socketPath))}、ソケット: ${st(socketPath)}、このアプリ: ${uid}:${gid}${caps ? ` ${caps}` : ''}`;
 }
 
 const normFp = (s) => String(s || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
@@ -147,7 +170,7 @@ export function createCln({ clnRestUrl, clnRune, clnCaCert = null, clnTlsFingerp
       sock.on('error', (e) => {
         const why =
           e.code === 'EACCES' || e.code === 'EPERM'
-            ? `CLN のソケットに接続する権限がありません（${clnRpcSocket}）。CLN と同じユーザーで動かしてください（Umbrel では root）`
+            ? `CLN のソケットに接続する権限がありません（${clnRpcSocket}）。CLN と同じユーザーで動かすか、root で動かすなら DAC_OVERRIDE の特権を付けてください。いまの状態: ${describeSocketAccess(clnRpcSocket)}`
             : e.code === 'ENOENT' || e.code === 'ECONNREFUSED'
               ? `CLN のソケットが見つかりません（${clnRpcSocket}）。CLN が起動しているか、パスが正しいか確かめてください`
               : `CLN のソケットに接続できません（${clnRpcSocket}）: ${e.message}`;

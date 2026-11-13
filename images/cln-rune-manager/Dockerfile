@@ -7,7 +7,8 @@ COPY public ./public
 COPY bin ./bin
 
 # Umbrel では CLN のフォルダ（/root/.lightning）を /cln につなぎ、lightning-rpc を直接呼ぶ。
-# CLN は root で動き、ソケットは 0600 なので、このコンテナも root で動かす（compose で user を指定しない）
+# CLN は root で動き、ソケットは 0600 なので、このコンテナも root で動かす（compose で user を指定しない）。
+# フォルダの持ち主が変えられていてもつなげるよう、compose では特権を DAC_OVERRIDE だけにする
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3630 \
