@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-btcd
 category: bitcoin
 name: btcd
-version: "0.27.0-2"
+version: "0.27.0-3"
 tagline: A full Bitcoin node written in Go
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-btcd/icon.svg
 description: >-
@@ -25,7 +25,13 @@ description: >-
 
   Ports: P2P 48333, RPC 48334 (TLS). A Tor onion address is created for P2P.
 releaseNotes: >-
-  The status page no longer shows "stopped" while btcd is busy processing
+  New "this node" card on the status page: how your node presents itself to
+  peers (user agent, protocol version, announced services), inbound peers by
+  network (IPv4, IPv6, Tor, Umbrel/LAN), your onion address, relay fee,
+  traffic, mempool and clock offset.
+
+
+  0.27.0-2: The status page no longer shows "stopped" while btcd is busy processing
   blocks during the initial sync. It now shows "waiting for btcd" with the
   last known values.
 
