@@ -178,5 +178,84 @@ $("copyPass").addEventListener("click", async () => {
   setTimeout(() => { $("copyPass").textContent = "コピー"; }, 2000);
 });
 
+const SERVICE_HELP = {
+  NETWORK: "全ブロックを提供",
+  NETWORK_LIMITED: "直近のブロックを提供",
+  BLOOM: "ブルームフィルタ（BIP37）",
+  WITNESS: "SegWit",
+  COMPACT_FILTERS: "コンパクトフィルタ（BIP157/158）",
+  P2P_V2: "暗号化通信 v2（BIP324）",
+};
+const REACH_LABELS = [
+  ["ipv4", "IPv4"], ["ipv6", "IPv6"], ["onion", "Tor"],
+  ["not_publicly_routable", "Umbrel・LAN"], ["other", "その他"],
+];
+
+function escHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function renderSelf(m) {
+  $("selfAgent").textContent = m.userAgent;
+  $("selfProto").textContent = m.protocolVersion ? `プロトコル ${m.protocolVersion}` : "";
+  $("selfFlags").innerHTML = m.flags.map((f) =>
+    `<span class="flag" title="${escHtml(SERVICE_HELP[f.name] || f.name)}">${escHtml(f.name)}</span>`).join("") || "なし";
+  $("selfServices").textContent = `値 ${m.services}（0x${m.services.toString(16).padStart(3, "0")}）`;
+
+  if (m.inbound) {
+    const total = Object.values(m.inbound).reduce((a, b) => a + b, 0);
+    const parts = REACH_LABELS.filter(([k]) => m.inbound[k]).map(([k, l]) => `${l} ${m.inbound[k]}`);
+    const pub = (m.inbound.ipv4 || 0) + (m.inbound.ipv6 || 0) + (m.inbound.onion || 0);
+    let text = `受信 ${total}` + (parts.length ? `（${parts.join(" ・ ")}）` : "") + ` ・ 送信 ${m.outbound}`;
+    if (!pub) {
+      text += m.torOnly
+        ? " — インターネットからの受信はまだありません。Tor のアドレスが広まるまで時間がかかることがあります。"
+        : " — インターネットからの受信はまだありません。ルーターでポート 48333 を開けるか、Tor のアドレスが広まるのを待つと受け付けられます。";
+    }
+    $("selfReach").textContent = text;
+  } else {
+    $("selfReach").textContent = "—";
+  }
+
+  const addrs = [];
+  if (m.onion) addrs.push(`${m.onion}:${m.onionPort}`);
+  $("selfAddr").textContent = (addrs.length ? addrs.join(" ・ ") : "Tor のアドレスはまだありません") +
+    (m.torOnly ? "（Tor のみ）" : "（IP アドレスはルーターの外側のものになり、btcd からは分かりません）");
+
+  if (m.relayFeeBtcPerKb != null) {
+    const satVb = m.relayFeeBtcPerKb * 1e8 / 1000;
+    $("selfRelay").textContent = `最低手数料 ${satVb.toLocaleString("ja-JP", { maximumFractionDigits: 3 })} sat/vB` +
+      ` ・ ${m.proxy ? `Tor 経由（${m.proxy}）` : "直接"}`;
+  }
+  if (m.bytesRecv != null) {
+    $("selfTraffic").textContent = `受信 ${fmtBytes(m.bytesRecv)} ・ 送信 ${fmtBytes(m.bytesSent)}（btcd の起動から）`;
+  }
+  if (m.mempoolTxs != null) {
+    $("selfMempool").textContent = `${fmtInt(m.mempoolTxs)} 件 ・ ${fmtBytes(m.mempoolBytes)}`;
+  }
+  if (m.timeOffset != null) {
+    const o = m.timeOffset;
+    $("selfOffset").textContent = o === 0 ? "なし" : `${o > 0 ? "+" : ""}${o} 秒` +
+      (Math.abs(o) >= 70 * 60 ? "（大きすぎます。時計を確認してください）" : "");
+  }
+  const notes = [...m.errors];
+  if (m.warnings) notes.unshift(`btcd の警告: ${m.warnings}`);
+  $("selfNote").hidden = !notes.length;
+  $("selfNote").textContent = notes.join(" / ");
+}
+
+async function refreshSelf() {
+  try {
+    const r = await fetch("api/self", { cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    renderSelf(await r.json());
+  } catch (e) {
+    $("selfNote").hidden = false;
+    $("selfNote").textContent = `自分のノードの情報を読めません（${e.message}）`;
+  }
+}
+
 refresh();
 setInterval(refresh, 10000);
+refreshSelf();
+setInterval(refreshSelf, 30000);

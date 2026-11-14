@@ -359,6 +359,117 @@ def peers():
     return {"peers": out, "now": now}
 
 
+# What btcd v0.27.0 announces (server.go defaultServices), before the
+# options that turn bits off. NETWORK_LIMITED stays on even when not pruned.
+BTCD_DEFAULT_SERVICES = 1 | 1024 | 4 | 8 | 64 | 2048
+BTCD_USER_AGENT = ("/btcwire:0.5.0/", "btcd", "0.27.0")
+# wire.ProtocolVersion, sent in the version message. getinfo reports the
+# RPC server's own constant (70002) instead, so it is not used here.
+BTCD_P2P_PROTOCOL = 70016
+CONF_TRUE = ("1", "true", "yes", "on")
+
+
+def conf_options():
+    """Options set in btcd.conf that change what the node announces."""
+    opts = {"nopeerbloomfilters": False, "nocfilters": False, "prune": 0,
+            "v2transport": False, "uacomment": []}
+    try:
+        with open(CONF_FILE, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return opts
+    for line in lines:
+        line = line.strip()
+        if not line or line[0] in ";#[" or "=" not in line:
+            continue
+        key, value = (x.strip() for x in line.split("=", 1))
+        key = key.lower()
+        if key == "uacomment":
+            if value:
+                opts["uacomment"].append(value)
+        elif key == "prune":
+            try:
+                opts["prune"] = int(value)
+            except ValueError:
+                pass
+        elif key in opts:
+            opts[key] = value.lower() in CONF_TRUE
+    return opts
+
+
+def local_services(args):
+    opts = conf_options()
+    flagged = lambda name: f"--{name}" in args or opts[name]
+    services = BTCD_DEFAULT_SERVICES
+    if flagged("nopeerbloomfilters"):
+        services &= ~4
+    if flagged("nocfilters"):
+        services &= ~64
+    if opts["prune"]:
+        services &= ~1
+    if not flagged("v2transport"):
+        services &= ~2048
+    base, name, version = BTCD_USER_AGENT
+    ua = f"{name}:{version}"
+    if opts["uacomment"]:
+        ua += "(" + "; ".join(opts["uacomment"]) + ")"
+    return services, base + ua + "/"
+
+
+def self_info():
+    """How this node presents itself to the network."""
+    saved = load_settings()
+    applied = read_json(APPLIED_FILE) or {}
+    s = {k: applied.get(k, saved[k]) for k in DEFAULTS}
+    services, user_agent = local_services(btcd_args(s))
+    value, flags = decode_services(f"{services}")
+    out = {
+        "userAgent": user_agent,
+        "protocolVersion": BTCD_P2P_PROTOCOL,
+        "services": value,
+        "flags": flags,
+        "torOnly": bool(s["torOnly"]),
+        "onion": onion_address(),
+        "onionPort": NETWORKS[s["network"]][1],
+        "errors": [],
+    }
+    # Each RPC on its own, so a slow one does not hide the others
+    try:
+        info = rpc("getinfo", timeout=8)
+        out.update(
+            relayFeeBtcPerKb=info.get("relayfee"),
+            timeOffset=info.get("timeoffset"),
+            proxy=info.get("proxy") or "",
+            warnings=info.get("errors") or "",
+        )
+    except RpcError as e:
+        out["errors"].append(f"getinfo: {e}")
+    try:
+        peers = rpc("getpeerinfo", timeout=8) or []
+        inbound = {}
+        for p in peers:
+            if p.get("inbound"):
+                net = network_type(p.get("addr", ""))
+                inbound[net] = inbound.get(net, 0) + 1
+        out["inbound"] = inbound
+        out["outbound"] = sum(1 for p in peers if not p.get("inbound"))
+    except RpcError as e:
+        out["errors"].append(f"getpeerinfo: {e}")
+    try:
+        t = rpc("getnettotals", timeout=8)
+        out["bytesRecv"] = t.get("totalbytesrecv", 0)
+        out["bytesSent"] = t.get("totalbytessent", 0)
+    except RpcError as e:
+        out["errors"].append(f"getnettotals: {e}")
+    try:
+        m = rpc("getmempoolinfo", timeout=8)
+        out["mempoolTxs"] = m.get("size", 0)
+        out["mempoolBytes"] = m.get("bytes", 0)
+    except RpcError as e:
+        out["errors"].append(f"getmempoolinfo: {e}")
+    return out
+
+
 CHAIN_NAMES = {"mainnet": "mainnet", "testnet": "testnet3", "testnet4": "testnet4", "signet": "signet"}
 _last_node = {"node": None, "at": 0.0}
 
@@ -438,6 +549,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/status":
             return self.send_json(200, status())
+        if path == "/api/self":
+            return self.send_json(200, self_info())
         if path == "/api/peers":
             try:
                 return self.send_json(200, peers())

@@ -109,3 +109,4 @@ body.wide main { width: min(1320px, calc(100vw - 32px)); }
 .peers { min-width: 1150px; }
 .peers td:nth-child(4) { min-width: 230px; }
 .peers td:nth-child(5) { min-width: 130px; }
+#selfServices { display: block; margin-top: 6px; font-size: 12px; }

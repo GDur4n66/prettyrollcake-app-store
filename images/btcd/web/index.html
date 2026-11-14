@@ -34,6 +34,22 @@
   </section>
 
   <section class="card">
+    <div class="label">自分のノード</div>
+    <p class="hint">ほかのノードから見たこのノードです。名乗っているサービスは btcd の起動オプションと btcd.conf から求めています。</p>
+    <dl class="kv">
+      <dt>名乗り</dt><dd><code id="selfAgent">—</code> <small id="selfProto" class="muted"></small></dd>
+      <dt>サービス</dt><dd><div class="flags" id="selfFlags">—</div><small id="selfServices" class="muted"></small></dd>
+      <dt>外からの接続</dt><dd id="selfReach">—</dd>
+      <dt>公開アドレス</dt><dd id="selfAddr">—</dd>
+      <dt>リレー</dt><dd id="selfRelay">—</dd>
+      <dt>通信量</dt><dd id="selfTraffic">—</dd>
+      <dt>メモリプール</dt><dd id="selfMempool">—</dd>
+      <dt>時計のずれ</dt><dd id="selfOffset">—</dd>
+    </dl>
+    <p id="selfNote" class="hint" hidden></p>
+  </section>
+
+  <section class="card">
     <div class="label">接続情報</div>
     <p class="hint">btcctl や btcd 対応のウォレットから RPC で接続できます。RPC は TLS で、下の証明書が必要です。</p>
     <dl class="kv">
