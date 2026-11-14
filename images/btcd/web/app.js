@@ -167,14 +167,42 @@ $("showPass").addEventListener("click", () => {
   $("showPass").textContent = showPass ? "隠す" : "表示";
   if (last) $("rpcPass").textContent = showPass ? last.connect.rpcPass : "••••••••";
 });
+// navigator.clipboard only exists on https pages, and Umbrel serves apps over
+// plain http (umbrel.local, a LAN IP), so fall back to execCommand("copy").
+async function copyText(text) {
+  if (window.isSecureContext && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to the fallback below
+    }
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.top = "0";
+  ta.style.left = "0";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  ta.remove();
+  return ok;
+}
+
 $("copyPass").addEventListener("click", async () => {
   if (!last) return;
-  try {
-    await navigator.clipboard.writeText(last.connect.rpcPass);
-    $("copyPass").textContent = "コピーしました";
-  } catch {
-    $("copyPass").textContent = "コピーできません";
-  }
+  const ok = await copyText(last.connect.rpcPass);
+  $("copyPass").textContent = ok ? "コピーしました" : "コピーできません";
   setTimeout(() => { $("copyPass").textContent = "コピー"; }, 2000);
 });
 
