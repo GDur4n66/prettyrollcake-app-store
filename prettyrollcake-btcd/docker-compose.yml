@@ -8,7 +8,7 @@ services:
 
   btcd:
     # Built from images/btcd by .github/workflows/btcd-image.yml
-    image: ghcr.io/gdur4n66/btcd:0.27.0-3@sha256:68fe6ca349450846104901c7c7fc2e7786c1ecd8b86b234cbe00cc5d7ab84251
+    image: ghcr.io/gdur4n66/btcd:0.27.0-4@sha256:df75af2d90d19c61fbd618539fe4e11a645d0cbbddb9a56a03292705652b8e33
     # The RPC certificate is made for this host name (umbrel.local)
     hostname: ${DEVICE_DOMAIN_NAME}
     command: ["python", "-I", "/app/btcdapp.py", "launcher"]
@@ -32,7 +32,7 @@ services:
         ipv4_address: ${APP_BTCD_IP}
 
   web:
-    image: ghcr.io/gdur4n66/btcd:0.27.0-3@sha256:68fe6ca349450846104901c7c7fc2e7786c1ecd8b86b234cbe00cc5d7ab84251
+    image: ghcr.io/gdur4n66/btcd:0.27.0-4@sha256:df75af2d90d19c61fbd618539fe4e11a645d0cbbddb9a56a03292705652b8e33
     command: ["python", "-I", "/app/btcdapp.py", "web"]
     restart: on-failure
     init: true
