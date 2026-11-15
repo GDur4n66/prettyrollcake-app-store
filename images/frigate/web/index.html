@@ -38,6 +38,24 @@
   </section>
 
   <section class="card">
+    <div class="label">索引の開始位置</div>
+    <p class="hint">Frigate はこのブロックから先だけを索引にします。これより前に受け取ったサイレントペイメントは見つけられないので、財布を作った頃（初めて受け取った頃）より前にしてください。後ろにするほど索引作りが早く終わり、データも小さくなります。</p>
+    <p class="current">いまの設定: <b id="startNow">—</b></p>
+    <form id="startForm">
+      <label class="radio"><input type="radio" name="mode" value="default" checked> <span id="defaultLabel">既定（Taproot 有効化から）</span></label>
+      <label class="radio"><input type="radio" name="mode" value="custom"> ブロック高を指定
+        <input type="number" id="startInput" min="0" step="1" inputmode="numeric" placeholder="例: 840000">
+      </label>
+      <small class="muted" id="tipHint"></small>
+      <div class="actions">
+        <span class="msg" id="startMsg"></span>
+        <button type="submit" id="startSave">保存して索引を作り直す</button>
+      </div>
+    </form>
+    <p class="hint small">変えると今の索引を消して、新しい開始位置から作り直します。終わるまでは財布からつないでも応答しません。</p>
+  </section>
+
+  <section class="card">
     <div class="label">使われ方</div>
     <p class="hint">Frigate が出すのは 10 単位に丸めた数だけです（10 未満は「10 未満」）。</p>
     <dl class="kv">

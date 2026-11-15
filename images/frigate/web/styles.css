@@ -41,6 +41,19 @@ main { width: min(960px, calc(100vw - 32px)); margin: 28px auto 60px; display: g
 code, pre { font-family: ui-monospace, monospace; font-size: 13px; }
 pre.log { background: var(--field); border: 1px solid var(--line); padding: 12px; margin: 0; max-height: 420px; overflow: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .link { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; }
+.current { margin: 0 0 14px; font-size: 14px; }
+form { display: grid; gap: 12px; }
+label.radio { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; font-size: 14px; }
+label.radio input[type=radio] { width: 18px; height: 18px; margin: 0; }
+input[type=number] { height: 40px; width: min(220px, 100%); border: 1px solid var(--line); background: var(--field); color: var(--ink); padding: 0 12px; font: 14px ui-monospace, monospace; }
+input[type=number]:disabled { opacity: .5; }
+.muted { color: var(--muted); font-size: 12px; }
+.actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px 16px; }
+.actions button { min-height: 44px; border: 0; background: var(--ink); color: var(--paper); padding: 0 22px; font-weight: 700; cursor: pointer; font-size: 14px; }
+.actions button:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.actions button:disabled { opacity: .5; cursor: default; }
+.msg { font-size: 13px; color: var(--muted); }
+.msg.err { color: var(--down); }
 @media (max-width: 720px) {
   .grid { grid-template-columns: 1fr 1fr; }
   .kv { grid-template-columns: 1fr; gap: 2px; }

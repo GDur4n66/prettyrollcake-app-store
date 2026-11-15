@@ -7,6 +7,7 @@ const PHASES = {
   "waiting-node": ["ノードの同期待ち", "busy"],
   indexing: ["索引作り中", "busy"],
   ready: ["稼働中", "ok"],
+  rebuilding: ["作り直し中", "busy"],
   stopped: ["停止", "down"],
 };
 const BACKEND = {
@@ -100,7 +101,10 @@ function renderSync(s) {
     pct = p.percent;
     label = "索引作り";
     meta = `${fmtInt(p.done)} / ${fmtInt(p.total)} ブロック（${p.percent.toFixed(1)}%）。` +
-      "初回は Taproot 有効化（709,632）からノードの先頭まで読みます。数時間〜数日かかります。";
+      `初回は開始位置（${fmtInt(s.effectiveStartHeight)}）からノードの先頭まで読みます。数時間〜数日かかります。`;
+  } else if (s.phase === "rebuilding") {
+    unit = "";
+    meta = "Frigate を止めて索引を消しています。このあと新しい開始位置から作り直します。";
   } else if (s.phase === "waiting-node") {
     unit = "";
     meta = "Bitcoin ノードの初回同期が終わるのを待っています。";
@@ -139,6 +143,7 @@ function render(s) {
 
   renderEndpoints(s);
   renderSync(s);
+  renderStart(s);
 
   if (s.infoError) setNotice(`状態を読めませんでした: ${s.infoError}`, "warn");
   else setNotice("");
@@ -148,6 +153,93 @@ function render(s) {
   pre.textContent = s.log.length ? s.log.join("\n") : "（まだ出力はありません）";
   if (atBottom) pre.scrollTop = pre.scrollHeight;
 }
+
+// ---------------------------------------------------------------- start height
+
+let last = null;
+let formTouched = false;
+let saving = false;
+
+function formMode() {
+  return document.querySelector("input[name=mode]:checked").value;
+}
+
+function syncInputEnabled() {
+  $("startInput").disabled = formMode() !== "custom";
+}
+
+function renderStart(s) {
+  last = s;
+  $("startNow").textContent = s.startHeight == null
+    ? `既定（${fmtInt(s.defaultStartHeight)}）から`
+    : `ブロック ${fmtInt(s.startHeight)} から`;
+  $("defaultLabel").textContent = s.network === "mainnet"
+    ? `既定（Taproot 有効化、${fmtInt(s.defaultStartHeight)}）から`
+    : `既定（${fmtInt(s.defaultStartHeight)}）から`;
+  const tip = s.info && s.info.health && s.info.health.tipHeight;
+  $("tipHint").textContent = tip ? `いまのノードの先頭は ${fmtInt(tip)} です。` : "";
+  if (!formTouched) {
+    const custom = s.startHeight != null;
+    document.querySelector(`input[name=mode][value=${custom ? "custom" : "default"}]`).checked = true;
+    $("startInput").value = custom ? s.startHeight : "";
+    syncInputEnabled();
+  }
+  $("startSave").disabled = saving || s.phase === "rebuilding";
+}
+
+function setStartMsg(text, err) {
+  $("startMsg").textContent = text || "";
+  $("startMsg").className = `msg ${err ? "err" : ""}`;
+}
+
+document.querySelectorAll("input[name=mode]").forEach((r) => r.addEventListener("change", () => {
+  formTouched = true;
+  syncInputEnabled();
+  if (formMode() === "custom") $("startInput").focus();
+}));
+$("startInput").addEventListener("input", () => { formTouched = true; });
+
+$("startForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!last) return;
+  let height = null;
+  if (formMode() === "custom") {
+    const raw = $("startInput").value.trim();
+    if (!/^\d+$/.test(raw)) return setStartMsg("ブロック高を数字で入れてください", true);
+    height = Number(raw);
+    const tip = last.info && last.info.health && last.info.health.tipHeight;
+    if (tip && height > tip) return setStartMsg(`ノードの先頭（${fmtInt(tip)}）より後ろは指定できません`, true);
+    if (height === last.defaultStartHeight) height = null;
+  }
+  if (height === last.startHeight) {
+    formTouched = false;
+    return setStartMsg("いまの設定と同じです");
+  }
+  const where = height == null ? `既定（${fmtInt(last.defaultStartHeight)}）` : `ブロック ${fmtInt(height)}`;
+  const msg = `索引の開始位置を ${where} に変えます。\n\n` +
+    (last.indexExists ? "いまの索引を消して最初から作り直します。終わるまで（数時間〜数日）財布からはつながりません。\n\n" : "") +
+    "よろしいですか？";
+  if (!confirm(msg)) return;
+  saving = true;
+  $("startSave").disabled = true;
+  setStartMsg("保存しています…");
+  try {
+    const res = await fetch("api/start-height", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startHeight: height }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    formTouched = false;
+    setStartMsg("保存しました。索引を作り直しています。");
+  } catch (err) {
+    setStartMsg(`保存できませんでした: ${err.message}`, true);
+  } finally {
+    saving = false;
+    refresh();
+  }
+});
 
 async function refresh() {
   try {

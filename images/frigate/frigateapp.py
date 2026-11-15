@@ -3,12 +3,19 @@
   python3 -I /app/frigateapp.py
 
 Writes config.toml on the first start (and applies the app's small
-migrations), runs Frigate as a child process, and serves a read-only status
-page on PORT. The page reads Frigate's stdout (indexing progress, which
-compute backend it chose, recent log lines) and its admin port's getinfo.
-The admin port is bound to the loopback address only, which is why the page
-runs in the same container. SIGTERM/SIGINT stop Frigate and then this
-process; when Frigate exits on its own, this process exits with its code.
+migrations), runs Frigate as a child process, and serves a status page on
+PORT. The page reads Frigate's stdout (indexing progress, which compute
+backend it chose, recent log lines) and its admin port's getinfo. The admin
+port is bound to the loopback address only, which is why the page runs in
+the same container.
+
+The page can change where the index starts ([index] startHeight). Frigate
+only ever extends its index from the last indexed block, so a new start
+height means a new index: this process stops Frigate, deletes the index and
+starts Frigate again.
+
+SIGTERM/SIGINT stop Frigate and then this process; when Frigate exits on its
+own, this process exits with its code.
 
 Standard library only.
 """
@@ -34,6 +41,9 @@ PORT = int(os.environ.get("PORT", "50012"))
 ELECTRUM_PORT = 50011
 ADMIN_PORT = 50003
 LOG_LINES = 200
+# Frigate's own default when startHeight is not set (Taproot activation)
+DEFAULT_START_HEIGHT = 709632 if NETWORK == "mainnet" else 0
+MAX_START_HEIGHT = 10_000_000
 
 # Frigate keeps mainnet in its home folder and the others in a subfolder
 NETWORK_DIRS = {
@@ -139,6 +149,73 @@ def prepare_config():
         print(f"Updated {path}", flush=True)
 
 
+def read_config():
+    try:
+        with open(config_path(), encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def write_config(text):
+    path = config_path()
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def section_bounds(text, name):
+    """(start, end) of a TOML section's body, or None when it is missing."""
+    m = re.search(r"(?m)^\[" + re.escape(name) + r"\][ \t]*\n?", text)
+    if not m:
+        return None
+    nxt = re.search(r"(?m)^\[", text[m.end():])
+    return m.end(), m.end() + nxt.start() if nxt else len(text)
+
+
+def start_height():
+    """The configured start height, or None for Frigate's default."""
+    text = read_config()
+    b = section_bounds(text, "index")
+    if not b:
+        return None
+    m = re.search(r"(?m)^[ \t]*startHeight[ \t]*=[ \t]*(\d+)", text[b[0]:b[1]])
+    return int(m.group(1)) if m else None
+
+
+def set_start_height(height):
+    text = read_config()
+    line = f"startHeight = {height}\n" if height is not None else ""
+    b = section_bounds(text, "index")
+    if not b:
+        if line:
+            text = text.rstrip("\n") + "\n\n[index]\n" + line
+    else:
+        body = re.sub(r"(?m)^[ \t]*startHeight[ \t]*=.*\n?", "", text[b[0]:b[1]])
+        text = text[:b[0]] + line + body + text[b[1]:]
+    write_config(text)
+
+
+def index_files():
+    d = network_dir()
+    return [os.path.join(d, "db"), os.path.join(d, "recentblocks")]
+
+
+def index_exists():
+    return os.path.exists(os.path.join(network_dir(), "db", "frigate.duckdb"))
+
+
+def delete_index():
+    import shutil
+    for path in index_files():
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        elif os.path.exists(path):
+            os.remove(path)
+    print("Deleted the index", flush=True)
+
+
 def admin_port():
     try:
         with open(config_path(), encoding="utf-8") as f:
@@ -215,31 +292,75 @@ def pump(stream):
         on_line(line)
 
 
-def run_frigate():
-    stopping = threading.Event()
-    proc = None
+class Supervisor:
+    """Runs Frigate, and restarts it with a new index when the page asks."""
 
-    def on_signal(_signum, _frame):
-        stopping.set()
+    NO_REQUEST = object()
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.proc = None
+        self.stopping = threading.Event()
+        self.rebuild = self.NO_REQUEST   # start height (or None) to rebuild from
+
+    def rebuilding(self):
+        with self.lock:
+            return self.rebuild is not self.NO_REQUEST
+
+    def request_rebuild(self, height):
+        """Stop Frigate; the loop then sets the start height, deletes the
+        index and starts Frigate again. False when one is already under way."""
+        with self.lock:
+            if self.rebuild is not self.NO_REQUEST or self.stopping.is_set():
+                return False
+            self.rebuild = height
+            proc = self.proc
+        print(f"Rebuilding the index from {height if height is not None else 'the default'}", flush=True)
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGTERM)
+        return True
+
+    def on_signal(self, _signum, _frame):
+        self.stopping.set()
+        with self.lock:
+            proc = self.proc
         if proc and proc.poll() is None:
             proc.send_signal(signal.SIGTERM)
 
-    signal.signal(signal.SIGTERM, on_signal)
-    signal.signal(signal.SIGINT, on_signal)
+    def run(self):
+        signal.signal(signal.SIGTERM, self.on_signal)
+        signal.signal(signal.SIGINT, self.on_signal)
+        while True:
+            with self.lock:
+                self.proc = subprocess.Popen([FRIGATE_BIN, "-d", DATA_DIR, "-n", NETWORK],
+                                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                proc = self.proc
+                pending = self.rebuild is not self.NO_REQUEST
+            if self.stopping.is_set() or pending:
+                proc.send_signal(signal.SIGTERM)
+            reader = threading.Thread(target=pump, args=(proc.stdout,), daemon=True)
+            reader.start()
+            rc = proc.wait()
+            reader.join(timeout=5)
+            print(f"Frigate exited with {rc}", flush=True)
+            with self.lock:
+                height, self.rebuild = self.rebuild, self.NO_REQUEST
+            if self.stopping.is_set():
+                with STATE.lock:
+                    STATE.phase, STATE.exit_code = "stopped", rc
+                return 0
+            if height is self.NO_REQUEST:
+                with STATE.lock:
+                    STATE.phase, STATE.exit_code = "stopped", rc
+                return rc or 1
+            set_start_height(height)
+            delete_index()
+            with STATE.lock:
+                STATE.phase, STATE.progress, STATE.exit_code = "starting", None, None
+                STATE.started_at = time.time()
 
-    proc = subprocess.Popen([FRIGATE_BIN, "-d", DATA_DIR, "-n", NETWORK],
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    if stopping.is_set():
-        proc.send_signal(signal.SIGTERM)
-    reader = threading.Thread(target=pump, args=(proc.stdout,), daemon=True)
-    reader.start()
-    rc = proc.wait()
-    reader.join(timeout=5)
-    with STATE.lock:
-        STATE.phase = "stopped"
-        STATE.exit_code = rc
-    print(f"Frigate exited with {rc}", flush=True)
-    return 0 if stopping.is_set() else (rc or 1)
+
+SUPERVISOR = Supervisor()
 
 
 # ---------------------------------------------------------------- status
@@ -270,11 +391,18 @@ def getinfo():
 def status():
     snap = STATE.snapshot()
     info, info_error = (None, None)
-    if snap["phase"] != "stopped":
+    if SUPERVISOR.rebuilding():
+        snap["phase"] = "rebuilding"
+    elif snap["phase"] != "stopped":
         info, info_error = getinfo()
         if info and snap["phase"] != "ready":
             snap["phase"] = "ready"
+    configured = start_height()
     return {
+        "startHeight": configured,
+        "defaultStartHeight": DEFAULT_START_HEIGHT,
+        "effectiveStartHeight": DEFAULT_START_HEIGHT if configured is None else configured,
+        "indexExists": index_exists(),
         **snap,
         "version": VERSION,
         "network": NETWORK,
@@ -324,6 +452,44 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_body(200, body, ctype, "no-cache")
         self.send_body(404, b"not found", "text/plain")
 
+    def send_json(self, code, obj):
+        self.send_body(code, json.dumps(obj, ensure_ascii=False).encode(), "application/json")
+
+    def read_json_body(self):
+        # A JSON content type makes cross-site form posts impossible
+        if not self.headers.get("Content-Type", "").startswith("application/json"):
+            return None
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
+        if length > 10000:
+            return None
+        try:
+            data = json.loads(self.rfile.read(length) or b"{}")
+        except ValueError:
+            return None
+        return data if isinstance(data, dict) else None
+
+    def do_POST(self):
+        path = self.path.split("?", 1)[0]
+        data = self.read_json_body()
+        if data is None:
+            return self.send_json(400, {"error": "リクエストが正しくありません"})
+        if path == "/api/start-height":
+            height = data.get("startHeight")
+            if height is not None:
+                if type(height) is not int or not 0 <= height <= MAX_START_HEIGHT:
+                    return self.send_json(400, {"error": f"ブロック高は 0〜{MAX_START_HEIGHT:,} の整数で指定してください"})
+                if height == DEFAULT_START_HEIGHT:
+                    height = None
+            if height == start_height() and data.get("rebuild") is not True:
+                return self.send_json(200, {"ok": True, "changed": False})
+            if not SUPERVISOR.request_rebuild(height):
+                return self.send_json(409, {"error": "作り直しの最中です。終わってからもう一度試してください"})
+            return self.send_json(200, {"ok": True, "changed": True})
+        self.send_json(404, {"error": "not found"})
+
 
 def run_web():
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
@@ -335,7 +501,7 @@ def run_web():
 def main():
     prepare_config()
     threading.Thread(target=run_web, daemon=True).start()
-    return run_frigate()
+    return SUPERVISOR.run()
 
 
 if __name__ == "__main__":
