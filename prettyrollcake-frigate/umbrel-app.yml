@@ -4,6 +4,7 @@ category: bitcoin
 name: Frigate
 version: "1.6.1"
 tagline: Silent Payments Electrum server
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-frigate/icon.svg
 description: >-
   Frigate is an Electrum server for Silent Payments (BIP352). It scans for
   Silent Payments server-side using ephemeral in-memory client keys and

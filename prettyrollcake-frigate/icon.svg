@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14304a"/>
+      <stop offset="1" stop-color="#0b1a29"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+
+  <!-- masts and bowsprit -->
+  <g stroke="#e9eef3" stroke-width="5" stroke-linecap="round">
+    <path d="M88 76V168M128 50V168M168 70V168M204 166 232 144"/>
+  </g>
+
+  <!-- sails, outlined in the background colour so they stay separate -->
+  <g fill="#e9eef3" stroke="#10263b" stroke-width="5" paint-order="stroke" stroke-linejoin="round">
+    <!-- jib -->
+    <path d="M172 78 228 146H174Z"/>
+    <!-- fore -->
+    <path d="M150 84H186Q190 96 188 108H148Q146 96 150 84Z"/>
+    <path d="M144 116H192Q198 134 194 154Q168 160 142 154Q138 134 144 116Z"/>
+    <!-- mizzen -->
+    <path d="M70 88H106Q110 100 108 112H68Q66 100 70 88Z"/>
+    <path d="M64 120H112Q118 137 114 156Q88 162 62 156Q58 137 64 120Z"/>
+    <!-- main -->
+    <path d="M102 64H154Q159 80 156 96H100Q97 80 102 64Z"/>
+    <path d="M94 104H162Q169 126 164 152Q128 160 92 152Q87 126 94 104Z"/>
+  </g>
+
+  <!-- pennant -->
+  <path d="M128 48 154 55 128 62Z" fill="#f7931a"/>
+
+  <!-- hull -->
+  <path d="M40 166H216L198 194Q128 206 58 194Z" fill="#e9eef3"/>
+  <path d="M48 176H208" stroke="#f7931a" stroke-width="5"/>
+
+  <!-- sea -->
+  <g fill="none" stroke="#3fb6c9" stroke-width="6" stroke-linecap="round">
+    <path d="M28 212q16-10 32 0t32 0 32 0 32 0 32 0 32 0 32 0"/>
+    <path d="M52 228q16-10 32 0t32 0 32 0 32 0 32 0" stroke-opacity=".45"/>
+  </g>
+</svg>
