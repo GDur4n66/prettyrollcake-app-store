@@ -2,18 +2,23 @@ manifestVersion: 1
 id: prettyrollcake-frigate
 category: bitcoin
 name: Frigate
-version: "1.5.3-opencl.2"
+version: "1.6.1"
 tagline: Silent Payments Electrum server
 description: >-
   Frigate is an Electrum server for Silent Payments (BIP352). It scans for
   Silent Payments server-side using ephemeral in-memory client keys and
   forwards other Electrum requests to the Electrs app. Historical scanning can
   use a supported GPU when one is exposed to the container, and otherwise
-  falls back to the CPU. Frigate has no graphical interface; connect an
-  Electrum client to port 50011 on your Umbrel.
+  falls back to the CPU. Connect an Electrum client to port 50011 on your
+  Umbrel. Open the app to see the indexing progress, the address to connect
+  to and recent log lines, or to change the block the index starts from.
 releaseNotes: >-
-  Reduces the default memory footprint for small deployments while retaining
-  Intel OpenCL GPU-assisted historical scanning on Umbrel Home 2 and 3.
+  Updates Frigate to 1.6.1, with connection and subscription limits, backend
+  reconnection and graceful shutdown. Adds a status page that shows the
+  indexing progress, the address to connect to, usage and recent log lines,
+  and lets you change the block the index starts from (the index is rebuilt).
+  Clients on your local network are exempt from the per-IP limits. The
+  existing index is kept.
 developer: Sparrow Wallet
 website: https://github.com/sparrowwallet/frigate
 dependencies:
@@ -21,7 +26,7 @@ dependencies:
   - electrs
 repo: https://github.com/sparrowwallet/frigate
 support: https://github.com/sparrowwallet/frigate/issues
-port: 50011
+port: 50012
 gallery: []
 path: ""
 defaultUsername: ""
