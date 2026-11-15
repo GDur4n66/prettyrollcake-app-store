@@ -1,30 +1,31 @@
 manifestVersion: 1
 id: prettyrollcake-scrutiny
-name: scrutiny
-tagline: tagline
-icon: https://svgur.com/i/mvA.svg
-category: Development
-version: "1.0.0"
-port: 38088
+category: utilities
+name: Scrutiny
+version: "0.10.0"
+tagline: Hard drive S.M.A.R.T. monitoring
+icon: https://raw.githubusercontent.com/AnalogJ/scrutiny/v0.10.0/webapp/frontend/src/assets/images/logo/scrutiny-logo-dark.svg
 description: >-
-  Add your app's description here.
+  Scrutiny collects S.M.A.R.T. data from your drives and shows their health,
+  temperature history and failure risk in a web dashboard. It compares the
+  values against real-world failure rates from Backblaze, not only the
+  manufacturer's thresholds.
 
 
-  You can also add newlines!
-
-developer: Umbrel
-website: https://umbrel.com
-submitter: Umbrel
-submission: https://github.com/getumbrel/umbrel-hello-world-app
-repo: https://github.com/getumbrel/umbrel-hello-world-app
-support: https://github.com/getumbrel/umbrel-hello-world-app/issues
-gallery:
-  - https://i.imgur.com/yyVG0Jb.jpeg
-  - https://i.imgur.com/yyVG0Jb.jpeg
-  - https://i.imgur.com/yyVG0Jb.jpeg
+  This app is set up for Umbrel Home and monitors its internal NVMe SSD
+  (/dev/nvme0). It will not start on devices without an NVMe drive.
 releaseNotes: >-
-  Add what's new in the latest version of your app here.
+  Scrutiny v0.10.0, pinned to a fixed image. The dashboard now goes through
+  the Umbrel login and is no longer exposed directly on the network.
+developer: AnalogJ
+website: https://github.com/AnalogJ/scrutiny
 dependencies: []
+repo: https://github.com/AnalogJ/scrutiny
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 38088
+gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store

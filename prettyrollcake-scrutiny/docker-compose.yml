@@ -1,8 +1,14 @@
 version: "3.7"
 
 services:
+  app_proxy:
+    environment:
+      APP_HOST: prettyrollcake-scrutiny_scrutiny_1
+      APP_PORT: 8080
+
   scrutiny:
-    image: ghcr.io/analogj/scrutiny:master-omnibus
+    # Upstream omnibus image (web UI + collector + InfluxDB), pinned by digest
+    image: ghcr.io/analogj/scrutiny:v0.10.0-omnibus@sha256:90062edac57a2bd891d641344184f5f730f19394b1124f6fc53904a3d8cb21c2
     restart: on-failure
     cap_add:
       - SYS_RAWIO
@@ -11,9 +17,6 @@ services:
       - /run/udev:/run/udev:ro
       - ${APP_DATA_DIR}/data/config:/opt/scrutiny/config
       - ${APP_DATA_DIR}/data/influxdb:/opt/scrutiny/influxdb
-    ports:
-      - 38088:8080 # webapp
-      #- "8086:8086" # influxDB admin
     devices:
+      # Umbrel Home has a single NVMe SSD
       - "/dev/nvme0"
-      #- "/dev/sda"
