@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frigate</title>
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div class="brand"><img src="icon.svg" alt=""><span>FRIGATE</span><small id="version"></small></div>
+  <div id="state" class="state">接続中…</div>
+</header>
+
+<main>
+  <div id="notice" class="notice" hidden></div>
+
+  <section class="card sync">
+    <div class="label" id="syncLabel">索引</div>
+    <div class="height"><strong id="height">—</strong><span id="heightUnit">ブロック</span></div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="meta" id="syncMeta">—</div>
+  </section>
+
+  <section class="grid">
+    <div class="card stat"><div class="label">ネットワーク</div><b id="network">—</b></div>
+    <div class="card stat"><div class="label">スキャン</div><b id="compute">—</b></div>
+    <div class="card stat"><div class="label">Electrs への接続</div><b id="backend">—</b></div>
+    <div class="card stat"><div class="label">稼働時間</div><b id="uptime">—</b></div>
+  </section>
+
+  <section class="card">
+    <div class="label">接続先</div>
+    <p class="hint">Sparrow など、サイレントペイメント（BIP352）に対応した Electrum クライアントから、次のサーバに TCP（SSL なし）でつなぎます。サイレントペイメント以外の問い合わせは Umbrel の Electrs に回されます。</p>
+    <dl class="kv" id="endpoints"></dl>
+    <p class="hint small">索引作りが終わるまでは、つないでも応答しません。</p>
+  </section>
+
+  <section class="card">
+    <div class="label">使われ方</div>
+    <p class="hint">Frigate が出すのは 10 単位に丸めた数だけです（10 未満は「10 未満」）。</p>
+    <dl class="kv">
+      <dt>接続</dt><dd id="sessions">—</dd>
+      <dt>接続元 IP</dt><dd id="ips">—</dd>
+      <dt>アドレス購読</dt><dd id="subs">—</dd>
+      <dt>SP 購読</dt><dd id="spSubs">—</dd>
+      <dt>メモリプール</dt><dd id="mempool">—</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="label">ログ</div>
+    <p class="hint">Frigate の出力の最近の行です（新しいものが下）。</p>
+    <pre id="log" class="log">—</pre>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
