@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-lnproxy-relay
 category: bitcoin
 name: lnproxy Relay
-version: "0.1.0"
+version: "0.2.0"
 tagline: Wrap Lightning invoices and stream their payment status
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-lnproxy-relay/icon.svg
 description: >-
@@ -28,8 +28,13 @@ description: >-
 
   The API (/spec and /events) is reachable without an Umbrel login on your
   local network and, when Tor is enabled, over your Umbrel's onion address.
-  The status page at / needs the login. It shows the fees, the addresses
-  and the token format, and can generate a token.
+
+
+  The page at / needs the login. Paste a Lightning Address (with amount and
+  memo) or an invoice to get the wrapped invoice with a QR code, and watch
+  its payment status live. Your browser fetches the Lightning Address
+  invoice itself, so the recipient's service must allow that. The page also
+  shows the fees, the addresses and the token.
 
 
   The app password shown by Umbrel is the admin token: it receives events
@@ -47,7 +52,9 @@ description: >-
   Paying wrapped invoices uses your node's channels and holds the incoming
   payment until the original invoice is paid. As in upstream lnproxy, the
   relay stops itself when a payment's outcome is unknown; Umbrel restarts it.
-releaseNotes: ""
+releaseNotes: >-
+  The page now wraps a Lightning Address or an invoice, shows the wrapped
+  invoice as a QR code and lists its payment events as they arrive.
 developer: prettyrollcake
 website: https://github.com/GDur4n66/prettyrollcake-app-store
 dependencies:
