@@ -8,16 +8,19 @@
 :root {
   --bg: #f4f6f9; --surface: #ffffff; --fg: #18202c; --muted: #5b6577; --line: #d5dbe4;
   --accent: #6d3fd1; --test: #b45309; --test-bg: #fff4e5; --code: #eef1f6;
+  --good: #15803d; --good-bg: #e7f6ec; --bad: #b42318; --bad-bg: #fdecea;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #10141b; --surface: #171c25; --fg: #e4e8ef; --muted: #98a2b3; --line: #2f3746;
     --accent: #a98bf0; --test: #f5a742; --test-bg: #2b2012; --code: #1f2531;
+    --good: #4ade80; --good-bg: #14291c; --bad: #f87171; --bad-bg: #2d1717;
     color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--fg);
   font: 15px/1.7 "Hiragino Sans", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
   padding: 32px max(16px, env(safe-area-inset-right)) 56px max(16px, env(safe-area-inset-left)); }
@@ -46,6 +49,33 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #token { flex: 1 1 280px; min-width: 0; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
   background: var(--code); color: var(--fg); }
 .note { font-size: .88rem; color: var(--muted); }
+textarea, input[type=text], input[type=number] { font: inherit; width: 100%; min-width: 0; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
+textarea { resize: vertical; }
+textarea.mono, input.mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .82rem; }
+label { display: grid; gap: 4px; font-size: .9rem; }
+label span { color: var(--muted); }
+form { display: grid; gap: 12px; }
+.fields { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+button:disabled { opacity: .6; cursor: wait; }
+.error { color: var(--bad); background: var(--bad-bg); border: 1px solid var(--bad); border-radius: 6px; padding: 8px 12px; }
+.result { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+.result img { width: 220px; height: 220px; image-rendering: pixelated; background: #fff; border-radius: 6px; }
+.result-body { display: grid; gap: 8px; min-width: 0; }
+.pay-state { font-weight: 700; padding: 8px 12px; border-radius: 6px; background: var(--code); }
+.pay-state.paid { color: var(--good); background: var(--good-bg); }
+.pay-state.failed { color: var(--bad); background: var(--bad-bg); }
+a.wallet { color: var(--accent); }
+.conn { font-size: .8rem; color: var(--muted); }
+.conn.ok { color: var(--good); }
+#events { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; max-height: 320px; overflow-y: auto; }
+.ev { display: grid; grid-template-columns: auto auto 1fr; gap: 10px; align-items: baseline; font-size: .88rem;
+  padding: 4px 8px; border-radius: 6px; }
+.ev.current { background: var(--code); }
+.ev.paid .ev-state { color: var(--good); font-weight: 700; }
+.ev-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+@media (max-width: 600px) { .fields, .result { grid-template-columns: 1fr; } .result img { justify-self: center; } }
 @media (max-width: 480px) { dl { grid-template-columns: 1fr; gap: 0 0; } dd { margin-bottom: 8px; } }
 </style>
 </head>
@@ -57,6 +87,43 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     <span class="muted">{{.Version}}</span>
   </header>
   <p class="muted">インボイスをラップして、受取人のノードを支払う人から隠します。ラップしたインボイスの支払い状態は SSE で受け取れます。</p>
+
+  <section aria-labelledby="try-title">
+    <h2 id="try-title">ラップして試す</h2>
+    <form id="wrap-form">
+      <label for="target"><span>ライトニングアドレス（name@example.com）か、元のインボイス</span>
+        <textarea id="target" class="mono" rows="3" required autocomplete="off" spellcheck="false"></textarea>
+      </label>
+      <div id="address-fields" class="fields" hidden>
+        <label for="amount"><span>金額（sat）</span><input id="amount" type="number" min="1" step="any" inputmode="decimal"></label>
+        <label for="comment"><span>受取人へのメモ（任意）</span><input id="comment" type="text" maxlength="255"></label>
+      </div>
+      <label for="wrapped-memo"><span>ラップしたインボイスのメモ（任意。空なら元のものを引き継ぐ）</span>
+        <input id="wrapped-memo" type="text" maxlength="639">
+      </label>
+      <div class="row"><button id="wrap-button" type="submit">ラップする</button></div>
+    </form>
+    <p id="wrap-error" class="error" role="alert" hidden></p>
+    <div id="result" class="result" hidden>
+      <img id="qr" alt="ラップしたインボイスの QR コード">
+      <div class="result-body">
+        <p id="pay-state" class="pay-state" role="status" hidden></p>
+        <p id="amounts"></p>
+        <textarea id="wrapped" class="mono" rows="4" readonly aria-label="ラップしたインボイス"></textarea>
+        <div class="row">
+          <button id="copy-wrapped" type="button">コピー</button>
+          <a id="open-wallet" class="wallet" href="#">ウォレットで開く</a>
+        </div>
+        <p class="note">payment hash：<code id="hash"></code></p>
+      </div>
+    </div>
+    <p class="note">ライトニングアドレスは、このブラウザが相手のサービスから直接インボイスを取ります（リレーは取りに行きません）。相手がブラウザからの取得を許可していないと使えません。</p>
+  </section>
+
+  <section aria-labelledby="events-title">
+    <div class="section-head"><h2 id="events-title">イベント</h2><span id="conn" class="conn">接続中…</span></div>
+    <ul id="events"></ul>
+  </section>
 
   <section>
     <h2>接続先</h2>
@@ -80,14 +147,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   </section>
 
   <section>
-    <h2>使い方</h2>
-    <p>クライアントごとにトークンを1つ作り、すべてのインボイスで使い回します。トークンで見えるのは、そのトークンで作ったインボイスの支払い状態だけです。</p>
+    <h2>トークンと API</h2>
+    <p>クライアントごとにトークンを1つ作り、すべてのインボイスで使い回します。トークンで見えるのは、そのトークンで作ったインボイスの支払い状態だけです。このページも、ブラウザに保存した下のトークンを使っています。</p>
     <div class="row">
-      <input id="token" class="mono" readonly aria-label="トークン" placeholder="「作る」でトークンを作ります">
-      <button id="make" type="button">作る</button>
-      <button id="copy" type="button" class="secondary">コピー</button>
+      <input id="token" class="mono" readonly aria-label="このページのトークン">
+      <button id="copy-token" type="button" class="secondary">コピー</button>
+      <button id="new-token" type="button" class="secondary">作り直す</button>
     </div>
-    <p class="note">トークンはこのブラウザの中で作り、リレーには送りません。英数字・<code>-</code>・<code>_</code> で 32 文字以上なら、自分で作ったものでも使えます（例：<code>openssl rand -hex 32</code>）。</p>
+    <p class="note">トークンはこのブラウザの中で作り、リレーにはハッシュだけが残ります。英数字・<code>-</code>・<code>_</code> で 32 文字以上なら、自分で作ったものでも使えます（例：<code>openssl rand -hex 32</code>）。</p>
     <p>1. 支払い状態を受け取る接続を張る</p>
     <pre id="ex-events"></pre>
     <p>2. インボイスをラップする（JSON に <code>token</code> を付ける）</p>
@@ -104,49 +171,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     {{end}}
   </section>
 </main>
-<script>
-(function () {
-  var origin = location.origin;
-  var tokenInput = document.getElementById("token");
-  document.getElementById("origin").textContent = origin;
-
-  function render() {
-    var t = tokenInput.value || "<トークン>";
-    document.getElementById("ex-events").textContent =
-      'curl -N "' + origin + '/events?token=' + t + '"';
-    document.getElementById("ex-spec").textContent =
-      "curl -s -X POST " + origin + "/spec \\\n" +
-      "  -H 'Content-Type: application/json' \\\n" +
-      "  -d '{\"invoice\":\"<元のインボイス>\",\"token\":\"" + t + "\"}'";
-  }
-
-  document.getElementById("make").addEventListener("click", function () {
-    var bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    tokenInput.value = Array.prototype.map.call(bytes, function (b) {
-      return ("0" + b.toString(16)).slice(-2);
-    }).join("");
-    render();
-  });
-
-  document.getElementById("copy").addEventListener("click", function (event) {
-    var button = event.currentTarget;
-    if (!tokenInput.value) return;
-    function done() { button.textContent = "コピーしました"; setTimeout(function () { button.textContent = "コピー"; }, 1500); }
-    function fallback() {
-      // Umbrel is often opened over plain HTTP, where the Clipboard API is unavailable.
-      tokenInput.select();
-      try { if (document.execCommand("copy")) done(); } catch (e) {}
-    }
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(tokenInput.value).then(done, fallback);
-    } else {
-      fallback();
-    }
-  });
-
-  render();
-})();
-</script>
+<script src="static/qrcode.js"></script>
+<script src="static/tool.js"></script>
 </body>
 </html>

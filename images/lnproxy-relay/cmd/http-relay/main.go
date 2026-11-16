@@ -235,6 +235,7 @@ func main() {
 	}
 	log.Printf("lnproxy-relay %s network=%q", version, network)
 	http.HandleFunc("/", statusHandler(newStatusPage(lnproxy_relay, network, publicURL)))
+	http.Handle("/static/", staticHandler())
 	http.HandleFunc("/spec", specApiHandler)
 	http.HandleFunc("/events", eventsAPIHandler)
 	serverContext, cancelServer := context.WithCancel(context.Background())

@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "embed"
+	"embed"
 	"fmt"
 	"html/template"
 	"log"
@@ -17,6 +17,30 @@ var version = "dev"
 
 //go:embed status.html
 var statusHTML string
+
+// The page's scripts. qrcode.js is qrcode-generator 1.4.4 (MIT, Kazuhiko Arase).
+//
+//go:embed static/qrcode.js static/tool.js
+var staticFiles embed.FS
+
+// The status page talks to /spec and /events on this relay and, for a
+// Lightning Address, fetches the recipient's LNURL-pay endpoint over HTTPS
+// directly from the browser. Nothing else is loaded.
+const statusCSP = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; " +
+	"connect-src 'self' https:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+
+func staticHandler() http.Handler {
+	files := http.FileServer(http.FS(staticFiles))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/static/" || strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		files.ServeHTTP(w, r)
+	})
+}
 
 var statusTemplate = template.Must(template.New("status").Funcs(template.FuncMap{
 	"sat":     func(msat uint64) string { return decimal(msat, 3) },
@@ -87,7 +111,8 @@ func statusHandler(page statusPage) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:")
+		w.Header().Set("Content-Security-Policy", statusCSP)
+		w.Header().Set("Referrer-Policy", "no-referrer")
 		if err := statusTemplate.Execute(w, page); err != nil {
 			log.Println("status page error:", err)
 		}
