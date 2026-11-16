@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-frigate
 category: bitcoin
 name: Frigate
-version: "1.6.1"
+version: "1.6.1-1"
 tagline: Silent Payments Electrum server
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-frigate/icon.svg
 description: >-
@@ -14,7 +14,7 @@ description: >-
   Umbrel. Open the app to see the indexing progress, the address to connect
   to and recent log lines, or to change the block the index starts from.
 releaseNotes: >-
-  Updates Frigate to 1.6.1, with connection and subscription limits, backend
+  Adds an app icon. Updates Frigate to 1.6.1, with connection and subscription limits, backend
   reconnection and graceful shutdown. Adds a status page that shows the
   indexing progress, the address to connect to, usage and recent log lines,
   and lets you change the block the index starts from (the index is rebuilt).
