@@ -1,0 +1,36 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: prettyrollcake-lnproxy-relay_relay_1
+      APP_PORT: 4747
+      # Wallets and apps call the API without an Umbrel login (LAN and Tor).
+      # The status page at / still needs the login.
+      PROXY_AUTH_WHITELIST: "/spec,/events"
+
+  relay:
+    # Built from images/lnproxy-relay by .github/workflows/lnproxy-relay-image.yml
+    image: ghcr.io/gdur4n66/lnproxy-relay:0.1.0@sha256:2844180bf01ca085c1fb3c152e6cc5b8dc6804d235eca400fe9e2f5da604d5a6
+    user: "1000:1000"
+    restart: on-failure
+    init: true
+    # On stop the relay stops accepting requests and waits for payments in flight
+    stop_grace_period: 1m
+    volumes:
+      # Read-only: tls.cert and admin.macaroon
+      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
+      - ${APP_DATA_DIR}/data:/data
+    environment:
+      LNPROXY_LND_HOST: "https://${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_REST_PORT}"
+      LNPROXY_LND_CERT: "/lnd/tls.cert"
+      # tls.cert itself is the only trusted certificate, so skipping the
+      # hostname check cannot connect to anything else
+      LNPROXY_LND_TLS_VERIFY_HOSTNAME: "false"
+      LNPROXY_MACAROON: "/lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}/admin.macaroon"
+      # mainnet, testnet, signet or regtest: follows Umbrel's Bitcoin Node
+      LNPROXY_NETWORK: "${APP_BITCOIN_NETWORK}"
+      LNPROXY_PUBLIC_URL: "http://${APP_HIDDEN_SERVICE}"
+      # The app password (64 hex characters) receives events for every invoice
+      LNPROXY_ADMIN_TOKEN: "${APP_PASSWORD}"
+      LNPROXY_DB: "/data/lnproxy-relay.db"

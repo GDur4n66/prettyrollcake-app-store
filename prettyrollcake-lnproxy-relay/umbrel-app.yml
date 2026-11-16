@@ -1,0 +1,63 @@
+manifestVersion: 1
+id: prettyrollcake-lnproxy-relay
+category: bitcoin
+name: lnproxy Relay
+version: "0.1.0"
+tagline: Wrap Lightning invoices and stream their payment status
+icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-lnproxy-relay/icon.svg
+description: >-
+  Run an lnproxy relay on your Lightning Node (LND). A relay wraps a
+  Lightning invoice in a new invoice with the same payment hash, so the
+  payer sees your node instead of the recipient's. When the wrapped invoice
+  is paid, your node pays the original invoice and only then settles the
+  wrapped one, so the relay never holds funds it cannot pass on.
+
+
+  This version adds payment status events (an alternative to LUD-21
+  verify for Lightning Addresses that lack it):
+
+  - Each client generates its own random token and adds it as "token" to
+  the /spec request. Nobody has to issue tokens.
+
+  - GET /events with the same token streams the state of that client's
+  invoices over Server-Sent Events. "original_invoice_paid": true means the
+  original invoice has been paid.
+
+  - States are stored in SQLite and survive restarts.
+
+
+  The API (/spec and /events) is reachable without an Umbrel login on your
+  local network and, when Tor is enabled, over your Umbrel's onion address.
+  The status page at / needs the login. It shows the fees, the addresses
+  and the token format, and can generate a token.
+
+
+  The app password shown by Umbrel is the admin token: it receives events
+  for every invoice.
+
+
+  Fees: 1 sat plus 0.1% of the amount, plus a routing budget of 2.5 times
+  LND's fee estimate plus 1 sat. Unused routing budget stays with your node.
+
+
+  Works with mainnet, testnet, signet and regtest; it follows the network
+  of your Bitcoin Node. The interface is in Japanese.
+
+
+  Paying wrapped invoices uses your node's channels and holds the incoming
+  payment until the original invoice is paid. As in upstream lnproxy, the
+  relay stops itself when a payment's outcome is unknown; Umbrel restarts it.
+releaseNotes: ""
+developer: prettyrollcake
+website: https://github.com/GDur4n66/prettyrollcake-app-store
+dependencies:
+  - lightning
+repo: https://github.com/GDur4n66/prettyrollcake-app-store
+support: https://github.com/GDur4n66/prettyrollcake-app-store/issues
+port: 34747
+gallery: []
+path: ""
+defaultUsername: ""
+deterministicPassword: true
+submitter: prettyrollcake
+submission: https://github.com/GDur4n66/prettyrollcake-app-store
