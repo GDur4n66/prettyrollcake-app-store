@@ -1,0 +1,12 @@
+.git
+oreo
+Spelunker
+*.macaroon
+*.cert
+*.db*
+lnproxy-relay-http
+lnproxy.orig
+http-relay
+TEST-COMMAND
+scripts/__pycache__
+.venv
