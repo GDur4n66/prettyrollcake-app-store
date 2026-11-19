@@ -11,7 +11,7 @@ services:
 
   relay:
     # Built from images/lnproxy-relay by .github/workflows/lnproxy-relay-image.yml
-    image: ghcr.io/gdur4n66/lnproxy-relay:0.3.1@sha256:f3ea5f3762b6d7853bf0e541c06f9f70bb3d4cbe63c7fb0bc343bd6c4b5788a4
+    image: ghcr.io/gdur4n66/lnproxy-relay:0.3.2@sha256:fca8e4b5d985809efb553214b4e3e10430b9018711aca28c462afe02340f4c63
     user: "1000:1000"
     restart: on-failure
     init: true
