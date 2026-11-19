@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS events (
 	created_at    INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS events_owner_seq ON events (owner, seq);
+CREATE TABLE IF NOT EXISTS settings (
+	key        TEXT PRIMARY KEY,
+	value      TEXT NOT NULL,
+	updated_at INTEGER NOT NULL
+);
 `
 
 // OpenEventStore opens (or creates) the SQLite database at path.

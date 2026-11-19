@@ -20,7 +20,7 @@ var statusHTML string
 
 // The page's scripts. qrcode.js is qrcode-generator 1.4.4 (MIT, Kazuhiko Arase).
 //
-//go:embed static/qrcode.js static/tool.js
+//go:embed static/qrcode.js static/tool.js static/fees.js
 var staticFiles embed.FS
 
 // The status page talks to /spec and /events on this relay and, for a
@@ -75,6 +75,10 @@ type statusPage struct {
 	PublicURLs    []string
 	AdminTokenSet bool
 	relay.RelayParameters
+	// Filled for each request: fees can change while the relay runs.
+	Fees      relay.FeeSettings
+	FeesSaved bool
+	fees      func() (relay.FeeSettings, bool)
 }
 
 func newStatusPage(r *relay.Relay, network string, publicURLs string) statusPage {
@@ -83,6 +87,7 @@ func newStatusPage(r *relay.Relay, network string, publicURLs string) statusPage
 		Network:         strings.TrimSpace(network),
 		AdminTokenSet:   r.AdminToken != "",
 		RelayParameters: r.RelayParameters,
+		fees:            func() (relay.FeeSettings, bool) { return r.Fees(), false },
 	}
 	switch strings.ToLower(page.Network) {
 	case "regtest", "testnet", "testnet4", "signet", "simnet":
@@ -113,7 +118,9 @@ func statusHandler(page statusPage) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Security-Policy", statusCSP)
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		if err := statusTemplate.Execute(w, page); err != nil {
+		data := page
+		data.Fees, data.FeesSaved = page.fees()
+		if err := statusTemplate.Execute(w, data); err != nil {
 			log.Println("status page error:", err)
 		}
 	}

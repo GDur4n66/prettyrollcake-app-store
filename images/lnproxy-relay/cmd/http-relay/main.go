@@ -221,9 +221,15 @@ func main() {
 	}
 	log.Printf("event store: %s (retention %d days, admin token %t)", dbPath, retentionDays, adminToken != "")
 	go pruneEvents(eventStore, time.Duration(retentionDays)*24*time.Hour)
-	log.Printf("fee configuration: base_msat=%d ppm=%d budget_alpha_msat=%d budget_beta_ppm=%d min_budget_msat=%d",
-		lnproxy_relay.RoutingFeeBaseMsat, lnproxy_relay.RoutingFeePPM,
-		lnproxy_relay.RoutingBudgetAlpha, lnproxy_relay.RoutingBudgetBeta, lnproxy_relay.MinFeeBudgetMsat)
+	feeAPI, err := newFeeSettingsAPI(lnproxy_relay, eventStore)
+	if err != nil {
+		log.Fatalln("unable to read saved fees:", err)
+	}
+	if fees, saved := feeAPI.current(); saved {
+		logFees("fee configuration (saved from the status page)", fees, false)
+	} else {
+		logFees("fee configuration", fees, false)
+	}
 
 	network := os.Getenv("LNPROXY_NETWORK")
 	if network == "" {
@@ -234,7 +240,10 @@ func main() {
 		publicURL = *publicURLFlag
 	}
 	log.Printf("lnproxy-relay %s network=%q", version, network)
-	http.HandleFunc("/", statusHandler(newStatusPage(lnproxy_relay, network, publicURL)))
+	page := newStatusPage(lnproxy_relay, network, publicURL)
+	page.fees = feeAPI.current
+	http.HandleFunc("/", statusHandler(page))
+	http.Handle("/fees", feeAPI)
 	http.Handle("/static/", staticHandler())
 	http.HandleFunc("/spec", specApiHandler)
 	http.HandleFunc("/events", eventsAPIHandler)

@@ -20,6 +20,8 @@ type Relay struct {
 	events eventHub
 	// AdminToken, when set, subscribes to the events of every invoice.
 	AdminToken string
+	// feeMu guards the fee fields of RelayParameters once the relay runs.
+	feeMu sync.RWMutex
 }
 
 type RelayParameters struct {
@@ -172,15 +174,16 @@ func (relay *Relay) wrap(x ProxyParameters) (proxy_invoice_params *lnc.InvoicePa
 		q.CltvExpiry = relay.MinCltvExpiry
 	}
 
-	routing_fee_msat := relay.RoutingFeeBaseMsat + (p.NumMsat*relay.RoutingFeePPM)/1_000_000
+	fees := relay.Fees()
+	routing_fee_msat := fees.RoutingFeeBaseMsat + (p.NumMsat*fees.RoutingFeePPM)/1_000_000
 	if x.RoutingMsat != nil {
-		if *x.RoutingMsat < (relay.MinFeeBudgetMsat + routing_fee_msat) {
+		if *x.RoutingMsat < (fees.MinFeeBudgetMsat + routing_fee_msat) {
 			return nil, 0, errors.Join(ClientFacing, errors.New("custom fee budget too low"))
 		}
 		q.ValueMsat = p.NumMsat + *x.RoutingMsat
 		return &q, *x.RoutingMsat - routing_fee_msat, nil
 	}
-	fee_budget_msat = min_fee_budget_msat + relay.RoutingBudgetAlpha + (min_fee_budget_msat*relay.RoutingBudgetBeta)/1_000_000
+	fee_budget_msat = min_fee_budget_msat + fees.RoutingBudgetAlpha + (min_fee_budget_msat*fees.RoutingBudgetBeta)/1_000_000
 	q.ValueMsat = p.NumMsat + fee_budget_msat + routing_fee_msat
 	return &q, fee_budget_msat, nil
 }

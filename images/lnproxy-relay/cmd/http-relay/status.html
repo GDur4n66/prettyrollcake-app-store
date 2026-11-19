@@ -49,7 +49,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #token { flex: 1 1 280px; min-width: 0; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
   background: var(--code); color: var(--fg); }
 .note { font-size: .88rem; color: var(--muted); }
-textarea, input[type=text], input[type=number] { font: inherit; width: 100%; min-width: 0; padding: 8px 10px;
+textarea, input[type=text], input[type=number], input[type=password] { font: inherit; width: 100%; min-width: 0; padding: 8px 10px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); }
 textarea { resize: vertical; }
 textarea.mono, input.mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .82rem; }
@@ -75,6 +75,12 @@ a.wallet { color: var(--accent); }
 .ev.paid .ev-state { color: var(--good); font-weight: 700; }
 .ev-time { color: var(--muted); font-variant-numeric: tabular-nums; }
 .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+details > summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details[open] > summary { margin-bottom: 12px; }
+.fee-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.example { display: grid; gap: 8px; padding: 12px 14px; border-radius: 8px; background: var(--code); }
+.example input { background: var(--surface); }
+#fee-example { font-variant-numeric: tabular-nums; }
 @media (max-width: 600px) { .fields, .result { grid-template-columns: 1fr; } .result img { justify-self: center; } }
 @media (max-width: 480px) { dl { grid-template-columns: 1fr; gap: 0 0; } dd { margin-bottom: 8px; } }
 </style>
@@ -134,16 +140,51 @@ a.wallet { color: var(--accent); }
     <p class="note">クライアントは接続先の <code>/spec</code> でラップし、<code>/events</code> で支払い状態を受け取ります。</p>
   </section>
 
-  <section>
-    <h2>手数料と金額</h2>
+  <section aria-labelledby="fees-title">
+    <h2 id="fees-title">手数料と金額</h2>
     <dl>
       <dt>リレー手数料</dt>
-      <dd>{{sat .RoutingFeeBaseMsat}} sat ＋ 金額の {{percent .RoutingFeePPM}}%</dd>
+      <dd id="fee-relay">{{sat .Fees.RoutingFeeBaseMsat}} sat ＋ 金額の {{percent .Fees.RoutingFeePPM}}%</dd>
       <dt>経路手数料の予算</dt>
-      <dd>LND の見積もり ×（1 ＋ {{percent .RoutingBudgetBeta}}%）＋ {{sat .RoutingBudgetAlpha}} sat。使わなかった分はリレーが受け取ります。</dd>
+      <dd id="fee-budget">LND の見積もり ×（1 ＋ {{percent .Fees.RoutingBudgetBeta}}%）＋ {{sat .Fees.RoutingBudgetAlpha}} sat</dd>
+      <dt>予算を指定するとき</dt>
+      <dd><code>routing_msat</code> は <span id="fee-min-shown">{{sat .Fees.MinFeeBudgetMsat}} sat ＋ リレー手数料</span> 以上</dd>
       <dt>扱える金額</dt>
       <dd>{{sat .MinAmountMsat}} 〜 {{sat .MaxAmountMsat}} sat</dd>
+      <dt>設定</dt>
+      <dd id="fee-source">{{if .FeesSaved}}このページで保存した値{{else}}起動時の値（環境変数・フラグか既定値）{{end}}</dd>
     </dl>
+    <p class="note">ラップしたインボイスの金額は、元の金額 ＋ リレー手数料 ＋ 経路手数料の予算です。予算はリレーが元のインボイスを払うときの経路手数料の上限（LND の <code>fee_limit_msat</code>）で、使わなかった分はリレーが受け取ります。</p>
+    <details>
+      <summary>手数料を変える</summary>
+      <form id="fee-form" autocomplete="off">
+        <div class="fee-grid">
+          <label for="fee-base"><span>リレー手数料の基本料（sat）</span><input id="fee-base" type="text" inputmode="decimal" required></label>
+          <label for="fee-ppm"><span>リレー手数料の割合（金額の %）</span><input id="fee-ppm" type="text" inputmode="decimal" required></label>
+          <label for="fee-alpha"><span>予算に足す固定額（sat）</span><input id="fee-alpha" type="text" inputmode="decimal" required></label>
+          <label for="fee-beta"><span>予算に足す割合（見積もりの %）</span><input id="fee-beta" type="text" inputmode="decimal" required></label>
+          <label for="fee-min"><span>routing_msat の下限（sat）</span><input id="fee-min" type="text" inputmode="decimal" required></label>
+        </div>
+        <div class="example">
+          <div class="fee-grid">
+            <label for="ex-amount"><span>例：元の金額（sat）</span><input id="ex-amount" type="text" inputmode="decimal" value="10000"></label>
+            <label for="ex-estimate"><span>例：LND の見積もり（sat）</span><input id="ex-estimate" type="text" inputmode="decimal" value="2"></label>
+          </div>
+          <p id="fee-example" role="status"></p>
+        </div>
+        <label for="fee-admin"><span>管理用トークン（Umbrel ではこのアプリのパスワード）</span>
+          <input id="fee-admin" type="password" class="mono" autocomplete="off" spellcheck="false">
+        </label>
+        <p id="fee-no-admin" class="error" hidden>管理用トークン（<code>LNPROXY_ADMIN_TOKEN</code>）が設定されていないので、ここからは変えられません。</p>
+        <div class="row">
+          <button id="fee-save" type="submit">保存して反映</button>
+          <button id="fee-reset" type="button" class="secondary">起動時の値に戻す</button>
+        </div>
+        <p id="fee-message" class="note" role="alert" hidden></p>
+        <p id="fee-defaults" class="note"></p>
+        <p class="note">反映はすぐです（再起動は要りません）。すでにラップしたインボイスは、作ったときの手数料のままです。保存した値はデータベースに残り、再起動しても使われます。</p>
+      </form>
+    </details>
   </section>
 
   <section>
@@ -173,5 +214,6 @@ a.wallet { color: var(--accent); }
 </main>
 <script src="static/qrcode.js"></script>
 <script src="static/tool.js"></script>
+<script src="static/fees.js"></script>
 </body>
 </html>
