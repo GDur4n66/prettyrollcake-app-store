@@ -197,7 +197,7 @@
     return getJSON(fetchFn, url, "ライトニングアドレス").then(function (pay) {
       if (pay.tag !== "payRequest" || !pay.callback) throw new Error("LNURL-pay の応答ではありません");
       if (amountMsat < pay.minSendable || amountMsat > pay.maxSendable) {
-        throw new Error("金額は " + Math.ceil(pay.minSendable / 1000) + "〜" + Math.floor(pay.maxSendable / 1000) + " sat の範囲にしてください");
+        throw new Error("金額は " + Math.ceil(pay.minSendable / 1000) + "〜" + Math.floor(pay.maxSendable / 1000) + " sats の範囲にしてください");
       }
       if (comment && !(pay.commentAllowed >= comment.length)) {
         throw new Error(pay.commentAllowed ? "メモは " + pay.commentAllowed + " 文字までです" : "この宛先はメモを受け付けません");
@@ -252,7 +252,7 @@
 
   function sat(msat) {
     var s = (msat / 1000).toLocaleString("ja-JP", { maximumFractionDigits: 3 });
-    return s + " sat";
+    return s + " sats";
   }
 
   var api = {
@@ -398,7 +398,7 @@
       if (parseAddress(text)) {
         var amount = Number($("amount").value);
         if (!(amount > 0)) {
-          step = Promise.reject(new Error("金額（sat）を入れてください"));
+          step = Promise.reject(new Error("金額（sats）を入れてください"));
         } else {
           step = invoiceFromAddress(fetch.bind(window), text, Math.round(amount * 1000), $("comment").value.trim());
         }

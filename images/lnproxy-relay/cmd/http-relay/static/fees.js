@@ -53,16 +53,16 @@
   function parseField(field, text) {
     var n = parseDecimal(text, field[2]);
     if (n > field[3]) {
-      throw new Error(formatDecimal(field[3], field[2], true) + (field[2] === 3 ? " sat" : "%") + " までです");
+      throw new Error(formatDecimal(field[3], field[2], true) + (field[2] === 3 ? " sats" : "%") + " までです");
     }
     return n;
   }
 
   function describe(fees) {
     return {
-      relay: sat(fees.routing_fee_base_msat) + " sat ＋ 支払い金額の " + percent(fees.routing_fee_ppm) + "%",
+      relay: "固定費 " + sat(fees.routing_fee_base_msat) + " sats ＋ 支払い金額の " + percent(fees.routing_fee_ppm) + "%",
       margin: "ノード見積額 × " + percent(fees.routing_budget_beta_ppm) + "% ＋ " +
-        sat(fees.routing_budget_alpha_msat) + " sat",
+        sat(fees.routing_budget_alpha_msat) + " sats",
     };
   }
 
@@ -136,9 +136,9 @@
         var amount = parseDecimal($("ex-amount").value, 3);
         var estimate = parseDecimal($("ex-estimate").value, 3);
         var r = example(fees, amount, estimate);
-        out.textContent = "リレー利用料 " + sat(r.relayFeeMsat) + " sat ＋ ルーティング手数料の予算 " + sat(r.budgetMsat) +
-          " sat（ノード見積額 " + sat(estimate) + " ＋ マージン " + sat(r.budgetMsat - estimate) + "）→ 支払う額 " +
-          sat(r.totalMsat) + " sat（上乗せ " + sat(r.relayFeeMsat + r.budgetMsat) + " sat）";
+        out.textContent = "リレー利用料 " + sat(r.relayFeeMsat) + " sats ＋ ルーティング手数料の予算 " + sat(r.budgetMsat) +
+          " sats（ノード見積額 " + sat(estimate) + " ＋ マージン " + sat(r.budgetMsat - estimate) + "）\n→ラップしたインボイスの金額 " +
+          sat(r.totalMsat) + " sats (上乗せ額 " + sat(r.relayFeeMsat + r.budgetMsat) + " sats)";
       } catch (e) {
         out.textContent = e.message;
       }
@@ -149,7 +149,6 @@
       var d = describe(data.fees);
       $("fee-relay").textContent = d.relay;
       $("fee-margin").textContent = d.margin;
-      $("fee-source").textContent = data.saved ? "このページで保存した値" : "起動時の値（環境変数・フラグか既定値）";
       var def = describe(data.defaults);
       $("fee-defaults").textContent = "起動時の値：リレー利用料 " + def.relay + "、マージン " + def.margin;
       fillForm(data.fees);
