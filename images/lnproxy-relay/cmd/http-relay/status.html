@@ -77,6 +77,11 @@ a.wallet { color: var(--accent); }
 .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 details > summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 details[open] > summary { margin-bottom: 12px; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 6px; }
+legend { padding: 0; margin-bottom: 6px; font-weight: 600; }
+.fee-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fee-row > label:only-child { grid-column: 1 / -1; max-width: calc(50% - 6px); }
+@media (max-width: 480px) { .fee-row { grid-template-columns: 1fr; } .fee-row > label:only-child { max-width: none; } }
 .fee-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .example { display: grid; gap: 8px; padding: 12px 14px; border-radius: 8px; background: var(--code); }
 .example input { background: var(--surface); }
@@ -143,32 +148,40 @@ details[open] > summary { margin-bottom: 12px; }
   <section aria-labelledby="fees-title">
     <h2 id="fees-title">手数料と金額</h2>
     <dl>
-      <dt>リレー手数料</dt>
-      <dd id="fee-relay">{{sat .Fees.RoutingFeeBaseMsat}} sat ＋ 金額の {{percent .Fees.RoutingFeePPM}}%</dd>
-      <dt>経路手数料の予算</dt>
-      <dd id="fee-budget">LND の見積もり ×（1 ＋ {{percent .Fees.RoutingBudgetBeta}}%）＋ {{sat .Fees.RoutingBudgetAlpha}} sat</dd>
-      <dt>予算を指定するとき</dt>
-      <dd><code>routing_msat</code> は <span id="fee-min-shown">{{sat .Fees.MinFeeBudgetMsat}} sat ＋ リレー手数料</span> 以上</dd>
+      <dt>リレー利用料</dt>
+      <dd id="fee-relay">{{sat .Fees.RoutingFeeBaseMsat}} sat ＋ 支払い金額の {{percent .Fees.RoutingFeePPM}}%</dd>
+      <dt>ルーティング手数料の予算</dt>
+      <dd>ノード見積額 ＋ マージン</dd>
+      <dt>マージン</dt>
+      <dd id="fee-margin">ノード見積額 × {{percent .Fees.RoutingBudgetBeta}}% ＋ {{sat .Fees.RoutingBudgetAlpha}} sat</dd>
       <dt>扱える金額</dt>
       <dd>{{sat .MinAmountMsat}} 〜 {{sat .MaxAmountMsat}} sat</dd>
       <dt>設定</dt>
       <dd id="fee-source">{{if .FeesSaved}}このページで保存した値{{else}}起動時の値（環境変数・フラグか既定値）{{end}}</dd>
     </dl>
-    <p class="note">ラップしたインボイスの金額は、元の金額 ＋ リレー手数料 ＋ 経路手数料の予算です。予算はリレーが元のインボイスを払うときの経路手数料の上限（LND の <code>fee_limit_msat</code>）で、使わなかった分はリレーが受け取ります。</p>
+    <p class="note">ラップしたインボイスの金額は、<strong>元の金額 ＋ リレー利用料 ＋ ルーティング手数料の予算</strong> の合計額です。<br>
+      予算はリレーが元のインボイスを支払う時のルーティングノード手数料の上限（<code>fee_limit_msat</code>）となります。</p>
     <details>
       <summary>手数料を変える</summary>
       <form id="fee-form" autocomplete="off">
-        <div class="fee-grid">
-          <label for="fee-base"><span>リレー手数料の基本料（sat）</span><input id="fee-base" type="text" inputmode="decimal" required></label>
-          <label for="fee-ppm"><span>リレー手数料の割合（金額の %）</span><input id="fee-ppm" type="text" inputmode="decimal" required></label>
-          <label for="fee-alpha"><span>予算に足す固定額（sat）</span><input id="fee-alpha" type="text" inputmode="decimal" required></label>
-          <label for="fee-beta"><span>予算に足す割合（見積もりの %）</span><input id="fee-beta" type="text" inputmode="decimal" required></label>
-          <label for="fee-min"><span>routing_msat の下限（sat）</span><input id="fee-min" type="text" inputmode="decimal" required></label>
-        </div>
+        <fieldset>
+          <legend>リレー利用料</legend>
+          <div class="fee-row">
+            <label for="fee-base"><span>固定額（sat）</span><input id="fee-base" type="text" inputmode="decimal" required></label>
+            <label for="fee-ppm"><span>支払い金額の %</span><input id="fee-ppm" type="text" inputmode="decimal" required></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>マージン</legend>
+          <div class="fee-row">
+            <label for="fee-beta"><span>変動率（ノード見積額の %）</span><input id="fee-beta" type="text" inputmode="decimal" required></label>
+            <label for="fee-alpha"><span>固定額（sat）</span><input id="fee-alpha" type="text" inputmode="decimal" required></label>
+          </div>
+        </fieldset>
         <div class="example">
           <div class="fee-grid">
             <label for="ex-amount"><span>例：元の金額（sat）</span><input id="ex-amount" type="text" inputmode="decimal" value="10000"></label>
-            <label for="ex-estimate"><span>例：LND の見積もり（sat）</span><input id="ex-estimate" type="text" inputmode="decimal" value="2"></label>
+            <label for="ex-estimate"><span>例：ノード見積額（sat）</span><input id="ex-estimate" type="text" inputmode="decimal" value="2"></label>
           </div>
           <p id="fee-example" role="status"></p>
         </div>

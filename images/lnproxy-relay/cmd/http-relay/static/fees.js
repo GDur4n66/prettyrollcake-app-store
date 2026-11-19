@@ -47,7 +47,6 @@
     ["fee-ppm", "routing_fee_ppm", 4, 1000000],
     ["fee-alpha", "routing_budget_alpha_msat", 3, 100000000],
     ["fee-beta", "routing_budget_beta_ppm", 4, 100000000],
-    ["fee-min", "min_fee_budget_msat", 3, 100000000],
   ];
 
   // One field's text to its integer value, checked against the limit.
@@ -61,10 +60,9 @@
 
   function describe(fees) {
     return {
-      relay: sat(fees.routing_fee_base_msat) + " sat ＋ 金額の " + percent(fees.routing_fee_ppm) + "%",
-      budget: "LND の見積もり ×（1 ＋ " + percent(fees.routing_budget_beta_ppm) + "%）＋ " +
+      relay: sat(fees.routing_fee_base_msat) + " sat ＋ 支払い金額の " + percent(fees.routing_fee_ppm) + "%",
+      margin: "ノード見積額 × " + percent(fees.routing_budget_beta_ppm) + "% ＋ " +
         sat(fees.routing_budget_alpha_msat) + " sat",
-      min: sat(fees.min_fee_budget_msat) + " sat ＋ リレー手数料",
     };
   }
 
@@ -122,6 +120,8 @@
           throw new Error(label + "：" + e.message);
         }
       });
+      // Not on the page (only for clients that send routing_msat): kept as is.
+      fees.min_fee_budget_msat = state ? state.fees.min_fee_budget_msat : 1000;
       return fees;
     }
 
@@ -136,8 +136,9 @@
         var amount = parseDecimal($("ex-amount").value, 3);
         var estimate = parseDecimal($("ex-estimate").value, 3);
         var r = example(fees, amount, estimate);
-        out.textContent = "リレー手数料 " + sat(r.relayFeeMsat) + " sat ＋ 予算 " + sat(r.budgetMsat) +
-          " sat → 支払う額 " + sat(r.totalMsat) + " sat（上乗せ " + sat(r.relayFeeMsat + r.budgetMsat) + " sat）";
+        out.textContent = "リレー利用料 " + sat(r.relayFeeMsat) + " sat ＋ ルーティング手数料の予算 " + sat(r.budgetMsat) +
+          " sat（ノード見積額 " + sat(estimate) + " ＋ マージン " + sat(r.budgetMsat - estimate) + "）→ 支払う額 " +
+          sat(r.totalMsat) + " sat（上乗せ " + sat(r.relayFeeMsat + r.budgetMsat) + " sat）";
       } catch (e) {
         out.textContent = e.message;
       }
@@ -147,11 +148,10 @@
       state = data;
       var d = describe(data.fees);
       $("fee-relay").textContent = d.relay;
-      $("fee-budget").textContent = d.budget;
-      $("fee-min-shown").textContent = d.min;
+      $("fee-margin").textContent = d.margin;
       $("fee-source").textContent = data.saved ? "このページで保存した値" : "起動時の値（環境変数・フラグか既定値）";
       var def = describe(data.defaults);
-      $("fee-defaults").textContent = "起動時の値：リレー手数料 " + def.relay + "、予算 " + def.budget + "、下限 " + def.min;
+      $("fee-defaults").textContent = "起動時の値：リレー利用料 " + def.relay + "、マージン " + def.margin;
       fillForm(data.fees);
       setButtons();
       $("fee-no-admin").hidden = data.admin_token_set;
