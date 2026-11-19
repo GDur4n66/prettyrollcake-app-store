@@ -11,7 +11,7 @@ services:
 
   relay:
     # Built from images/lnproxy-relay by .github/workflows/lnproxy-relay-image.yml
-    image: ghcr.io/gdur4n66/lnproxy-relay:0.3.3@sha256:e7850e0c9c7997f43e87d74f1c5e0b8973b66140c9214f200ed7089de4c56d1b
+    image: ghcr.io/gdur4n66/lnproxy-relay:0.3.4@sha256:cf4463ca7ed007bd3fb252637c6f1f36a0563148b96bc7f00f3eb042c56c5821
     user: "1000:1000"
     restart: on-failure
     init: true
@@ -34,3 +34,7 @@ services:
       # The app password (64 hex characters) receives events for every invoice
       LNPROXY_ADMIN_TOKEN: "${APP_PASSWORD}"
       LNPROXY_DB: "/data/lnproxy-relay.db"
+      # Seconds the original invoice must still be valid; the wrapped invoice
+      # expires this much earlier. At least 60. Lower it (for example 60) to
+      # wrap invoices with short expiries such as 120 seconds.
+      LNPROXY_EXPIRY_BUFFER: "300"
