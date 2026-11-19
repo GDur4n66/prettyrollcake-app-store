@@ -81,6 +81,8 @@ func main() {
 	networkFlag := flag.String("network", "", "bitcoin network shown on the status page, e.g. mainnet or regtest (env: LNPROXY_NETWORK)")
 	publicURLFlag := flag.String("public-url", "", "comma-separated addresses clients use, shown on the status page (env: LNPROXY_PUBLIC_URL)")
 	dbPathFlag := flag.String("db", "lnproxy-relay.db", "SQLite file for invoice states and events (env: LNPROXY_DB)")
+	expiryBufferFlag := flag.Uint64("expiry-buffer", 300,
+		"seconds the original invoice must still be valid; the wrapped invoice expires this much earlier (env: LNPROXY_EXPIRY_BUFFER)")
 	retentionFlag := flag.Uint64("event-retention-days", 30, "days to keep invoice states and events (env: LNPROXY_EVENT_RETENTION_DAYS)")
 	lndHostStringFlag := flag.String("lnd", "https://127.0.0.1:8080", "host for lnd's REST api")
 	verifyHostnameFlag := flag.Bool("lnd-tls-verify-hostname", true,
@@ -210,6 +212,12 @@ func main() {
 
 	lnproxy_relay = relay.NewRelay(lnd)
 	fees.apply(lnproxy_relay)
+	lnproxy_relay.ExpiryBuffer, err = parseExpiryBuffer(os.Getenv("LNPROXY_EXPIRY_BUFFER"), *expiryBufferFlag,
+		lnproxy_relay.PaymentTimeout, lnproxy_relay.MaxExpiry)
+	if err != nil {
+		log.Fatalln("invalid expiry buffer:", err)
+	}
+	log.Printf("expiry buffer: %d seconds", lnproxy_relay.ExpiryBuffer)
 	lnproxy_relay.AdminToken = adminToken
 	eventStore, err := relay.OpenEventStore(dbPath)
 	if err != nil {
