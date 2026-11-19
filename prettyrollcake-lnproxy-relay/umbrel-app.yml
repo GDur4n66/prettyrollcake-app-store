@@ -2,7 +2,7 @@ manifestVersion: 1
 id: prettyrollcake-lnproxy-relay
 category: bitcoin
 name: lnproxy Relay
-version: "0.3.2"
+version: "0.3.3"
 tagline: Wrap Lightning invoices and stream their payment status
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-lnproxy-relay/icon.svg
 description: >-
@@ -56,9 +56,9 @@ description: >-
   payment until the original invoice is paid. As in upstream lnproxy, the
   relay stops itself when a payment's outcome is unknown; Umbrel restarts it.
 releaseNotes: >-
-  The fee section on the page is now one list (wrapped amount, relay fee,
-  routing budget, margin, amount range). The fee example shows the wrapped
-  invoice amount on its own line, and amounts on the page are in "sats".
+  The reset button on the page is now "初期値に戻す" (back to the initial
+  values: the defaults, or environment values if set), which reads less
+  like "the values of the last start".
 developer: prettyrollcake
 website: https://github.com/GDur4n66/prettyrollcake-app-store
 dependencies:
