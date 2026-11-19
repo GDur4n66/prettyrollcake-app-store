@@ -150,7 +150,7 @@
       $("fee-relay").textContent = d.relay;
       $("fee-margin").textContent = d.margin;
       var def = describe(data.defaults);
-      $("fee-defaults").textContent = "起動時の値：リレー利用料 " + def.relay + "、マージン " + def.margin;
+      $("fee-defaults").textContent = "初期値：リレー利用料 " + def.relay + "、マージン " + def.margin;
       fillForm(data.fees);
       setButtons();
       $("fee-no-admin").hidden = data.admin_token_set;
@@ -189,7 +189,7 @@
       submit({ fees: fees }, $("fee-save"), "保存しました。これからラップするインボイスに使います。");
     });
     $("fee-reset").addEventListener("click", function () {
-      submit({ reset: true }, $("fee-reset"), "起動時の値に戻しました。");
+      submit({ reset: true }, $("fee-reset"), "初期値に戻しました。");
     });
 
     fetch("fees", { cache: "no-store" }).then(function (res) {
