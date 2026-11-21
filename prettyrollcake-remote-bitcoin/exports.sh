@@ -1,22 +1,16 @@
-# Remote Bitcoin: export the same APP_BITCOIN_* variables as the Bitcoin Node app,
-# but pointing at a bitcoind on another host. Values come from data/settings.json,
-# which the app's web UI writes.
+# Remote Bitcoin: export the same APP_BITCOIN_* variables as the Bitcoin Node app.
+# The address and ports point at this app's relay (fixed IP and ports), which
+# forwards each connection to the bitcoind on another host set in the web UI.
+# The network and RPC credentials come from data/settings.json.
+export APP_REMOTE_BITCOIN_IP="10.21.114.21"
 
 EXPORTS_REMOTE_BITCOIN_DATA_ROOT="${EXPORTS_APP_DATA_DIR:-${EXPORTS_APP_DIR}/data}"
 EXPORTS_REMOTE_BITCOIN_SETTINGS="${EXPORTS_REMOTE_BITCOIN_DATA_ROOT}/settings.json"
 
 # Defaults (used until the settings are saved in the web UI)
-remote_bitcoin_host="remote-bitcoin-not-configured.invalid"
 remote_bitcoin_network="mainnet"
-remote_bitcoin_rpc_port="8332"
 remote_bitcoin_rpc_user="notconfigured"
 remote_bitcoin_rpc_pass="notconfigured"
-remote_bitcoin_p2p_port="8333"
-remote_bitcoin_zmq_rawblock_port="28332"
-remote_bitcoin_zmq_rawtx_port="28333"
-remote_bitcoin_zmq_hashblock_port="28334"
-remote_bitcoin_zmq_sequence_port="28335"
-remote_bitcoin_zmq_hashtx_port="28336"
 
 remote_bitcoin_read() {
 	local value
@@ -27,15 +21,9 @@ remote_bitcoin_read() {
 }
 
 if [[ -f "${EXPORTS_REMOTE_BITCOIN_SETTINGS}" ]]; then
-	v="$(remote_bitcoin_read host)" && [[ -n "${v}" ]] && remote_bitcoin_host="${v}"
 	v="$(remote_bitcoin_read network)" && [[ -n "${v}" ]] && remote_bitcoin_network="${v}"
-	v="$(remote_bitcoin_read rpcPort)" && [[ -n "${v}" ]] && remote_bitcoin_rpc_port="${v}"
 	v="$(remote_bitcoin_read rpcUser)" && [[ -n "${v}" ]] && remote_bitcoin_rpc_user="${v}"
 	v="$(remote_bitcoin_read rpcPass)" && [[ -n "${v}" ]] && remote_bitcoin_rpc_pass="${v}"
-	v="$(remote_bitcoin_read p2pPort)" && [[ -n "${v}" ]] && remote_bitcoin_p2p_port="${v}"
-	v="$(remote_bitcoin_read zmqRawBlockPort)" && [[ -n "${v}" ]] && remote_bitcoin_zmq_rawblock_port="${v}"
-	v="$(remote_bitcoin_read zmqRawTxPort)" && [[ -n "${v}" ]] && remote_bitcoin_zmq_rawtx_port="${v}"
-	v="$(remote_bitcoin_read zmqHashBlockPort)" && [[ -n "${v}" ]] && remote_bitcoin_zmq_hashblock_port="${v}"
 	unset v
 else
 	echo "Warning (${EXPORTS_APP_ID}): Remote Bitcoin is not configured yet. Open the Remote Bitcoin app to set it up." >&2
@@ -48,17 +36,18 @@ case "${remote_bitcoin_network}" in
 		remote_bitcoin_network="mainnet";;
 esac
 
-export APP_BITCOIN_NODE_IP="${remote_bitcoin_host}"
+# Relay ports are fixed; the remote ports are set in the web UI
+export APP_BITCOIN_NODE_IP="${APP_REMOTE_BITCOIN_IP}"
 export APP_BITCOIN_NETWORK="${remote_bitcoin_network}"
-export APP_BITCOIN_RPC_PORT="${remote_bitcoin_rpc_port}"
+export APP_BITCOIN_RPC_PORT="8332"
 export APP_BITCOIN_RPC_USER="${remote_bitcoin_rpc_user}"
 export APP_BITCOIN_RPC_PASS="${remote_bitcoin_rpc_pass}"
-export APP_BITCOIN_P2P_PORT="${remote_bitcoin_p2p_port}"
-export APP_BITCOIN_ZMQ_RAWBLOCK_PORT="${remote_bitcoin_zmq_rawblock_port}"
-export APP_BITCOIN_ZMQ_RAWTX_PORT="${remote_bitcoin_zmq_rawtx_port}"
-export APP_BITCOIN_ZMQ_HASHBLOCK_PORT="${remote_bitcoin_zmq_hashblock_port}"
-export APP_BITCOIN_ZMQ_SEQUENCE_PORT="${remote_bitcoin_zmq_sequence_port}"
-export APP_BITCOIN_ZMQ_HASHTX_PORT="${remote_bitcoin_zmq_hashtx_port}"
+export APP_BITCOIN_P2P_PORT="8333"
+export APP_BITCOIN_ZMQ_RAWBLOCK_PORT="28332"
+export APP_BITCOIN_ZMQ_RAWTX_PORT="28333"
+export APP_BITCOIN_ZMQ_HASHBLOCK_PORT="28334"
+export APP_BITCOIN_ZMQ_SEQUENCE_PORT="28335"
+export APP_BITCOIN_ZMQ_HASHTX_PORT="28336"
 
 # Stand-in for the bitcoind data directory. It holds only an RPC cookie file,
 # because some apps (Electrs) authenticate by reading <datadir>/.cookie
@@ -96,7 +85,5 @@ if [[ "${APP_BITCOIN_NETWORK_ELECTRS}" = "mainnet" ]]; then
 fi
 
 unset -f remote_bitcoin_read
-unset remote_bitcoin_host remote_bitcoin_network remote_bitcoin_rpc_port remote_bitcoin_rpc_user \
-	remote_bitcoin_rpc_pass remote_bitcoin_p2p_port remote_bitcoin_zmq_rawblock_port \
-	remote_bitcoin_zmq_rawtx_port remote_bitcoin_zmq_hashblock_port remote_bitcoin_zmq_sequence_port \
-	remote_bitcoin_zmq_hashtx_port EXPORTS_REMOTE_BITCOIN_DATA_ROOT EXPORTS_REMOTE_BITCOIN_SETTINGS
+unset remote_bitcoin_network remote_bitcoin_rpc_user remote_bitcoin_rpc_pass \
+	EXPORTS_REMOTE_BITCOIN_DATA_ROOT EXPORTS_REMOTE_BITCOIN_SETTINGS

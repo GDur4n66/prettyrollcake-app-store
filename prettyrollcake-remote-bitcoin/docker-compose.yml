@@ -3,18 +3,16 @@ version: "3.7"
 services:
   app_proxy:
     environment:
-      APP_HOST: prettyrollcake-remote-bitcoin_web_1
+      APP_HOST: $APP_REMOTE_BITCOIN_IP
       APP_PORT: 8080
 
   web:
-    image: python:3.12-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+    image: ghcr.io/gdur4n66/remote-bitcoin:0.3.0@sha256:3d8a98cae13270865945eb763d01440c65921e1ce52f33d356d24ea90f0984c1
     user: "1000:1000"
-    restart: on-failure
+    restart: always
     init: true
-    command: ["python", "-I", "/app/server.py"]
-    environment:
-      PORT: "8080"
-      SETTINGS_FILE: /data/settings.json
     volumes:
-      - ${APP_DATA_DIR}/web:/app:ro
       - ${APP_DATA_DIR}/data:/data
+    networks:
+      default:
+        ipv4_address: $APP_REMOTE_BITCOIN_IP

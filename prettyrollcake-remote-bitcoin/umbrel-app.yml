@@ -4,7 +4,7 @@ implements:
   - bitcoin
 category: bitcoin
 name: Remote Bitcoin
-version: "0.2.0"
+version: "0.3.0"
 tagline: Use a bitcoind on another host as the Bitcoin Node for your apps
 icon: https://raw.githubusercontent.com/GDur4n66/prettyrollcake-app-store/master/prettyrollcake-remote-bitcoin/icon.svg
 description: >-
@@ -13,20 +13,23 @@ description: >-
   instead of a node on this Umbrel.
 
 
-  It does not run a node itself. It only hands the remote node's RPC and ZMQ
-  connection details to the apps that choose it as their Bitcoin dependency.
+  It does not run a node itself. It relays the RPC, P2P and ZMQ connections
+  of the apps that choose it as their Bitcoin dependency to the remote node.
   Open the app to enter the remote node's address and credentials and to test
   the connection.
 
 
   Install this app first, then choose "Remote Bitcoin" in place of Bitcoin
-  Node when installing Lightning Node or Core Lightning. After changing the
-  settings, restart those apps so they pick up the new values.
+  Node when installing Lightning Node or Core Lightning. A new host or port
+  applies right away. After changing the network, RPC user name or password,
+  restart those apps so they pick up the new values.
 releaseNotes: >-
-  Electrs now works with Remote Bitcoin. The app writes an RPC cookie file
-  that Electrs reads to log in to the remote node. Restart Electrs after
-  updating. Electrs also needs the remote node's P2P port (8333) to be
-  reachable from this Umbrel.
+  Apps now reach the remote node through a relay inside this app instead of
+  connecting to it directly. This keeps a bitcoind on your LAN reachable when
+  a VPN app such as TunnelSats routes your Lightning node's traffic. A new
+  host or port now applies without restarting the apps that use it.
+  After updating, restart Lightning Node, Core Lightning and Electrs once so
+  they switch to the relay.
 developer: prettyrollcake
 website: https://github.com/GDur4n66/prettyrollcake-app-store
 dependencies: []
